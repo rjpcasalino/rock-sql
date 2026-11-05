@@ -195,7 +195,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 .badge-deepsky{background:#223344;color:var(--blue)}
 </style>
 <div class="card">
-<h2>🪐 Astronomy & Solar System Explorer <span class="muted">(click any celestial body to inspect & query)</span></h2>
+<h2>🔭 Astronomy & Solar System Explorer <span class="muted">(click any celestial body to inspect & query)</span></h2>
 <div class="tabbar">
   <button type="button" class="btn active" onclick="filterAstro('all', this)">All Solar System</button>
   <button type="button" class="btn" onclick="filterAstro('terrestrial', this)">Terrestrial</button>
@@ -212,7 +212,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
   <div class="astro-head">
     <span class="astro-orb" style="background:{{.Color}}"></span>
     <div>
-      <div class="astro-title">{{.Name}}{{if .HasRings}} 🪐{{end}}</div>
+      <div class="astro-title">{{.Icon}} {{.Name}}</div>
       <div class="astro-sub">{{.Dist}} AU · {{.Moons}} moon(s)</div>
     </div>
   </div>
@@ -299,7 +299,9 @@ function inspectAstro(kind, key) {
   if (!obj) return;
   let title = key;
   if (kind === 'planet') {
-    title = '🪐 ' + obj.name + ' (' + obj.type + ')';
+    const icons = {'Mercury':'☿','Venus':'♀','Earth':'🌍','Mars':'♂','Ceres':'⚪','Jupiter':'♃','Saturn':'🪐','Uranus':'♅','Neptune':'♆','Pluto':'♇','Haumea':'🥚','Makemake':'❄️','Eris':'🪨'};
+    const icon = icons[obj.name] || '●';
+    title = icon + ' ' + obj.name + ' (' + obj.type + ')';
   } else if (kind === 'moon') {
     title = '🌕 ' + obj.name + ' (Moon of ' + obj.planet_name + ')';
   } else if (kind === 'exoplanet') {
@@ -721,8 +723,8 @@ func main() {
 		}
 
 		type planetCard struct {
-			Name, Type, Color, Dist, Moons, Cat, BadgeClass string
-			HasRings                                        bool
+			Name, Type, Color, Dist, Moons, Cat, BadgeClass, Icon string
+			HasRings                                              bool
 		}
 		type moonCard struct {
 			Name, Planet, Diam string
@@ -737,6 +739,22 @@ func main() {
 		}
 		type constCard struct {
 			Abbr, Name, Genitive, BrightStar, Area, Quadrant string
+		}
+
+		planetIcons := map[string]string{
+			"Mercury":  "☿",
+			"Venus":    "♀",
+			"Earth":    "🌍",
+			"Mars":     "♂",
+			"Ceres":    "⚪",
+			"Jupiter":  "♃",
+			"Saturn":   "🪐",
+			"Uranus":   "♅",
+			"Neptune":  "♆",
+			"Pluto":    "♇",
+			"Haumea":   "🥚",
+			"Makemake": "❄️",
+			"Eris":     "🪨",
 		}
 
 		var planets []planetCard
@@ -760,15 +778,21 @@ func main() {
 				cat = "dwarf"
 				bclass = "badge-dwarf"
 			}
+			pName := rw[0]
+			icon := planetIcons[pName]
+			if icon == "" {
+				icon = "●"
+			}
 			planets = append(planets, planetCard{
-				Name:       rw[0],
+				Name:       pName,
 				Type:       rw[1],
 				Dist:       rw[2],
 				Moons:      rw[3],
-				HasRings:   rw[4] == "true",
+				HasRings:   rw[4] == "t" || rw[4] == "true",
 				Color:      rw[5],
 				Cat:        cat,
 				BadgeClass: bclass,
+				Icon:       icon,
 			})
 			if i > 0 {
 				js.WriteString(",")
