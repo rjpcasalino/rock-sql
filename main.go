@@ -139,7 +139,7 @@ button:hover,.btn:hover{background:#353545}
 .btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
 </style></head><body><div class="wrap">
-<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/sql?db=astronomy">sql console</a><a href="/puzzles">puzzles</a></nav></header>{{end}}
+<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/sql?db=astronomy">sql console</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
 {{define "result"}}{{if .Err}}<div class="err">ERROR: {{.Err}}</div>{{else}}
 <div class="muted">{{len .Rows}} row(s){{if .Truncate}} (capped at 1000){{end}} in {{.Elapsed}}</div>
@@ -166,10 +166,6 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 <textarea name="q" id="q" autofocus>{{.Q}}</textarea><div style="margin-top:8px"><button type="submit">▶ Run</button></div></form></div>
 {{if .Ran}}<div class="card">{{template "result" .Res}}</div>{{end}}
 <script>document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))e.target.form.submit()})</script>{{template "bottom" .}}{{end}}
-
-{{define "puzzles"}}{{template "top" .}}{{range .List}}<div class="card"><h2>{{.Title}} <span class="muted">({{.Db}})</span></h2>
-<div>{{.Ask}}</div><div class="chips" style="margin-top:6px"><a href="/sql?db={{.Db}}&q={{q .Starter}}">try it →</a>
-<a href="/sql?db={{.Db}}&q={{q .Answer}}">peek at an answer</a></div></div>{{end}}{{template "bottom" .}}{{end}}
 
 {{define "elements"}}{{template "top" .}}
 <style>.pt{display:grid;grid-template-columns:repeat(18,1fr);gap:3px}.el{border-radius:4px;padding:4px 3px;min-height:58px;font-size:10px;color:#16161c;cursor:pointer;position:relative}
@@ -326,44 +322,6 @@ function inspectAstro(kind, key) {
 {{template "bottom" .}}{{end}}
 `))
 
-type puzzle struct{ Title, Db, Ask, Starter, Answer string }
-
-var puzzles = []puzzle{
-	{"Habitable Worlds", "astronomy", "Find all confirmed exoplanets within 100 light years located in their star's habitable zone.",
-		"SELECT name, host_star, distance_light_years, planet_type\nFROM exoplanets\nWHERE habitable_zone = true\nORDER BY distance_light_years;",
-		"SELECT name, host_star, distance_light_years, planet_type, equilibrium_temp_k, discovery_method\nFROM exoplanets\nWHERE habitable_zone = true AND distance_light_years <= 100\nORDER BY distance_light_years;"},
-	{"Ocean Worlds", "astronomy", "List all solar system moons with subsurface liquid oceans, their parent planet, and size relative to parent.",
-		"SELECT name, planet_name, diameter_km, has_subsurface_ocean\nFROM moons\nWHERE has_subsurface_ocean = true\nORDER BY diameter_km DESC;",
-		"SELECT m.name AS moon, m.planet_name AS primary_planet, p.type, m.diameter_km AS moon_km, p.diameter_km AS planet_km,\n       round(m.diameter_km / p.diameter_km * 100, 2) AS pct_of_planet, m.notes\nFROM moons m\nJOIN planets p ON m.planet_name = p.name\nWHERE m.has_subsurface_ocean = true\nORDER BY m.diameter_km DESC;"},
-	{"Deep Sky by Constellation", "astronomy", "Count Messier objects per constellation and find the brightest object in each.",
-		"SELECT constellation, count(*)\nFROM messier_catalog\nGROUP BY 1 ORDER BY 2 DESC;",
-		"SELECT constellation, count(*) AS total_objects, min(apparent_magnitude) AS brightest_mag,\n       (SELECT common_name FROM messier_catalog m2 WHERE m2.constellation = m1.constellation ORDER BY apparent_magnitude ASC LIMIT 1) AS brightest_name\nFROM messier_catalog m1\nGROUP BY constellation\nORDER BY total_objects DESC, brightest_mag ASC;"},
-	{"Top 3 films per category", "pagila", "For each category, list the 3 films rented the most. (window functions: RANK)",
-		"SELECT c.name, f.title\nFROM film f\nJOIN film_category fc USING (film_id)\nJOIN category c USING (category_id)\nLIMIT 20;",
-		"SELECT name, title, rentals FROM (\n  SELECT c.name, f.title, count(r.rental_id) AS rentals,\n         rank() OVER (PARTITION BY c.name ORDER BY count(r.rental_id) DESC) AS rk\n  FROM film f\n  JOIN film_category fc USING (film_id)\n  JOIN category c USING (category_id)\n  JOIN inventory i USING (film_id)\n  JOIN rental r USING (inventory_id)\n  GROUP BY c.name, f.title\n) t WHERE rk <= 3 ORDER BY name, rk;"},
-	{"Running revenue", "pagila", "Show daily payment totals and a running cumulative total. (SUM() OVER ORDER BY)",
-		"SELECT payment_date::date AS day, sum(amount)\nFROM payment\nGROUP BY 1 ORDER BY 1;",
-		"SELECT day, total, sum(total) OVER (ORDER BY day) AS running\nFROM (SELECT payment_date::date AS day, sum(amount) AS total FROM payment GROUP BY 1) t\nORDER BY day;"},
-	{"Best-selling genres", "chinook", "Which genres earn the most money? (multi-join + GROUP BY)",
-		"SELECT * FROM \"Genre\";",
-		"SELECT g.\"Name\", sum(il.\"UnitPrice\" * il.\"Quantity\") AS revenue\nFROM \"InvoiceLine\" il\nJOIN \"Track\" t USING (\"TrackId\")\nJOIN \"Genre\" g USING (\"GenreId\")\nGROUP BY g.\"Name\" ORDER BY revenue DESC;"},
-	{"Who survived?", "titanic", "Survival rate by passenger class and sex. (conditional aggregates)",
-		"SELECT * FROM passenger LIMIT 10;",
-		"SELECT pclass, sex, count(*) AS passengers, round(avg(survived::int)*100, 1) AS pct_survived\nFROM passenger\nGROUP BY 1, 2\nORDER BY 1, 2;"},
-	{"Salary raises", "employees", "Find the 10 biggest single salary jumps ever given. (LAG)",
-		"SELECT * FROM employees.salary LIMIT 10;",
-		"SELECT employee_id, from_date, amount,\n       amount - lag(amount) OVER (PARTITION BY employee_id ORDER BY from_date) AS raise\nFROM employees.salary\nORDER BY raise DESC NULLS LAST LIMIT 10;"},
-	{"Discovery timeline", "elements", "How many elements were discovered each century, and by whom most often?",
-		"SELECT \"Element\", \"Year\", \"Discoverer\" FROM periodic_table ORDER BY \"Year\";",
-		"SELECT (\"Year\"/100+1) || 'th c.' AS century, count(*), mode() WITHIN GROUP (ORDER BY \"Discoverer\") AS top_discoverer\nFROM periodic_table WHERE \"Year\" IS NOT NULL\nGROUP BY 1 ORDER BY 1;"},
-	{"Biggest LEGO sets", "lego", "Largest sets by number of parts, per decade.",
-		"SELECT * FROM lego_sets LIMIT 10;",
-		"SELECT decade, name, num_parts FROM (\n  SELECT (year/10)*10 AS decade, name, num_parts,\n         row_number() OVER (PARTITION BY (year/10)*10 ORDER BY num_parts DESC) rn\n  FROM lego_sets) t WHERE rn = 1 ORDER BY decade;"},
-	{"Mandelbrot in SQL", "elements", "Just for fun: recursive CTE that draws the Mandelbrot set in ASCII.",
-		"WITH RECURSIVE x(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM x WHERE i < 9) SELECT * FROM x;",
-		"WITH RECURSIVE\n x(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM x WHERE i<67),\n y(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM y WHERE i<23),\n m(iter,cx,cy,x,y) AS (\n  SELECT 0, x.i*3.0/67-2.2, y.i*2.4/23-1.2, 0.0::float, 0.0::float FROM x, y\n  UNION ALL\n  SELECT iter+1, cx, cy, x*x-y*y+cx, 2*x*y+cy FROM m WHERE x*x+y*y<4 AND iter<28)\nSELECT string_agg(substr(' .:-=+*#%@', least(10, 1+max_iter/3), 1), '' ORDER BY cx) AS mandelbrot\nFROM (SELECT cx, cy, max(iter) max_iter FROM m GROUP BY cx, cy) t\nGROUP BY cy ORDER BY cy;"},
-}
-
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -443,10 +401,6 @@ func main() {
 			}
 		}
 		_ = tpl.ExecuteTemplate(w, "sql", data)
-	})
-
-	http.HandleFunc("/puzzles", func(w http.ResponseWriter, r *http.Request) {
-		_ = tpl.ExecuteTemplate(w, "puzzles", map[string]any{"Title": "puzzles", "List": puzzles})
 	})
 
 	http.HandleFunc("/elements", func(w http.ResponseWriter, r *http.Request) {
