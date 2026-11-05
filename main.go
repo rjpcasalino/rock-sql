@@ -22,6 +22,7 @@ import (
 var databases = []struct{ Name, Blurb string }{
 	{"astronomy", "Solar system, planetary moons, exoplanets & Messier deep sky"},
 	{"math", "Constants, polyhedra, number sequences, landmark theorems & curves"},
+	{"anatomy", "Human osteology, skeletal joints, prime mover muscles & organ systems"},
 	{"elements", "The periodic table: 118 elements, 28 properties each"},
 	{"library", "Your nookbook library: books, authors, book_authors"},
 	{"pagila", "DVD rental store: films, actors, customers, rentals, payments"},
@@ -140,7 +141,7 @@ button:hover,.btn:hover{background:#353545}
 .btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
 </style></head><body><div class="wrap">
-<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/math">mathematics</a></nav></header>{{end}}
+<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/math">mathematics</a><a href="/anatomy">anatomy</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
 {{define "result"}}{{if .Err}}<div class="err">ERROR: {{.Err}}</div>{{else}}
 <div class="muted">{{len .Rows}} row(s){{if .Truncate}} (capped at 1000){{end}} in {{.Elapsed}}</div>
@@ -457,6 +458,132 @@ function inspectMath(kind, key) {
   h += '</table>';
   document.getElementById('math-detail').innerHTML = h;
   document.getElementById('math-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+{{template "bottom" .}}{{end}}
+
+{{define "anatomy"}}{{template "top" .}}
+<style>
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.anat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.anat-card{background:#181822;border:1px solid var(--border);border-radius:6px;padding:10px;cursor:pointer;transition:border-color .15s}
+.anat-card:hover{border-color:var(--cyan);outline:1px solid var(--cyan)}
+.anat-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.anat-icon{min-width:32px;height:32px;border-radius:6px;background:#252535;color:var(--text);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;border:1px solid var(--border)}
+.anat-title{font-size:13px;font-weight:bold;color:var(--text)}
+.anat-sub{font-size:11px;color:var(--muted)}
+.anat-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;margin-top:4px}
+.badge-axial{background:#3a2835;color:#e8a2af}
+.badge-append{background:#263c45;color:var(--cyan)}
+.badge-joint{background:#3a3223;color:var(--gold)}
+.badge-muscle{background:#452828;color:var(--rose)}
+.badge-organ{background:#2b4436;color:var(--mint)}
+</style>
+<div class="card">
+<h2>🦴 Human Anatomy & Osteology Explorer <span class="muted">(click any structure to inspect anatomical relationships & functions)</span></h2>
+<div class="tabbar">
+  <button type="button" class="btn active" onclick="filterAnat('all', this)">All Structures</button>
+  <button type="button" class="btn" onclick="filterAnat('axial', this)">💀 Axial Skeleton</button>
+  <button type="button" class="btn" onclick="filterAnat('append', this)">🦴 Appendicular Limbs</button>
+  <button type="button" class="btn" onclick="filterAnat('joint', this)">🔗 Joints & Articulations</button>
+  <button type="button" class="btn" onclick="filterAnat('muscle', this)">💪 Prime Movers (Muscles)</button>
+  <button type="button" class="btn" onclick="filterAnat('organ', this)">🫀 Organ Systems</button>
+</div>
+<div class="anat-grid" id="anat-list">
+{{range .Bones}}
+<div class="anat-card" data-cat="{{.Cat}}" onclick="inspectAnat('bone', '{{.Name}}')">
+  <div class="anat-head">
+    <div class="anat-icon">{{if eq .Cat "axial"}}💀{{else}}🦴{{end}}</div>
+    <div>
+      <div class="anat-title">{{.Name}}</div>
+      <div class="anat-sub">{{.LatinName}} · ({{.Count}}×)</div>
+    </div>
+  </div>
+  <span class="anat-badge {{.BadgeClass}}">{{.Region}} · {{.Shape}}</span>
+</div>
+{{end}}
+{{range .Joints}}
+<div class="anat-card" data-cat="joint" onclick="inspectAnat('joint', '{{.Name}}')">
+  <div class="anat-head">
+    <div class="anat-icon" style="color:var(--gold)">🔗</div>
+    <div>
+      <div class="anat-title">{{.Name}}</div>
+      <div class="anat-sub">{{.TypeShort}}</div>
+    </div>
+  </div>
+  <span class="anat-badge badge-joint">{{.ClassShort}}</span>
+</div>
+{{end}}
+{{range .Muscles}}
+<div class="anat-card" data-cat="muscle" onclick="inspectAnat('muscle', '{{.Name}}')">
+  <div class="anat-head">
+    <div class="anat-icon" style="color:var(--rose)">💪</div>
+    <div>
+      <div class="anat-title">{{.Name}}</div>
+      <div class="anat-sub">{{.LatinName}}</div>
+    </div>
+  </div>
+  <span class="anat-badge badge-muscle">{{.Region}}</span>
+</div>
+{{end}}
+{{range .Organs}}
+<div class="anat-card" data-cat="organ" onclick="inspectAnat('organ', '{{.Name}}')">
+  <div class="anat-head">
+    <div class="anat-icon" style="color:var(--mint)">🫀</div>
+    <div>
+      <div class="anat-title">{{.Name}}</div>
+      <div class="anat-sub">{{.OrgansShort}}</div>
+    </div>
+  </div>
+  <span class="anat-badge badge-organ">Organ System</span>
+</div>
+{{end}}
+</div>
+</div>
+
+<div class="card" id="anat-detail">
+<span class="muted">Select any bone, joint, muscle, or organ system above to inspect details…</span>
+</div>
+
+<script>
+const AnatData = {{.JSON}};
+function filterAnat(cat, btn) {
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const cards = document.querySelectorAll('.anat-card');
+  cards.forEach(c => {
+    const ccat = c.getAttribute('data-cat') || '';
+    if (cat === 'all' || ccat === cat) {
+      c.style.display = 'block';
+    } else {
+      c.style.display = 'none';
+    }
+  });
+}
+
+function inspectAnat(kind, key) {
+  const map = AnatData[kind] || {};
+  const obj = map[key];
+  if (!obj) return;
+  let title = key;
+  if (kind === 'bone') {
+    title = '🦴 ' + obj.name + ' (' + obj.latin_name + ' · ' + obj.division + ')';
+  } else if (kind === 'joint') {
+    title = '🔗 ' + obj.name + ' (' + obj.joint_type + ')';
+  } else if (kind === 'muscle') {
+    title = '💪 ' + obj.name + ' (' + obj.latin_name + ')';
+  } else if (kind === 'organ') {
+    title = '🫀 ' + obj.name;
+  }
+  let h = '<h2>' + title + '</h2><table>';
+  for (const k in obj) {
+    if (obj[k] !== null && obj[k] !== '') {
+      h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
+    }
+  }
+  h += '</table>';
+  document.getElementById('anat-detail').innerHTML = h;
+  document.getElementById('anat-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 </script>
 {{template "bottom" .}}{{end}}
@@ -865,6 +992,130 @@ http.HandleFunc("/math", func(w http.ResponseWriter, r *http.Request) {
 			"JSON":          template.JS(js.String()),
 		}
 		_ = tpl.ExecuteTemplate(w, "math", data)
+	})
+
+	http.HandleFunc("/anatomy", func(w http.ResponseWriter, r *http.Request) {
+		p, err := pool("anatomy")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		type boneCard struct {
+			Name, LatinName, Division, Region, Shape, Cat, BadgeClass string
+			Count                                                    int
+		}
+		type jointCard struct {
+			Name, JointType, TypeShort, ClassShort string
+		}
+		type muscleCard struct {
+			Name, LatinName, Region string
+		}
+		type organCard struct {
+			Name, OrgansShort string
+		}
+
+		var bones []boneCard
+		var joints []jointCard
+		var muscles []muscleCard
+		var organs []organCard
+
+		var js strings.Builder
+		js.WriteString(`{"bone":{`)
+
+		// 1. Bones
+		bres := runQuery(p, `SELECT name, latin_name, division, region, shape, count_in_body, row_to_json(t)::text FROM bones t ORDER BY division ASC, region ASC, name ASC`)
+		for i, rw := range bres.Rows {
+			cnt, _ := strconv.Atoi(rw[5])
+			cat := "axial"
+			bclass := "badge-axial"
+			if strings.Contains(rw[2], "Appendicular") {
+				cat = "append"
+				bclass = "badge-append"
+			}
+			bones = append(bones, boneCard{
+				Name:       rw[0],
+				LatinName:  rw[1],
+				Division:   rw[2],
+				Region:     rw[3],
+				Shape:      rw[4],
+				Count:      cnt,
+				Cat:        cat,
+				BadgeClass: bclass,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[6])
+		}
+
+		// 2. Joints
+		js.WriteString(`},"joint":{`)
+		jres := runQuery(p, `SELECT name, joint_type, functional_class, row_to_json(t)::text FROM joints t ORDER BY name ASC`)
+		for i, rw := range jres.Rows {
+			tshort := rw[1]
+			if idx := strings.Index(tshort, " ("); idx != -1 {
+				tshort = tshort[:idx]
+			}
+			cshort := rw[2]
+			if idx := strings.Index(cshort, " ("); idx != -1 {
+				cshort = cshort[:idx]
+			}
+			joints = append(joints, jointCard{
+				Name:       rw[0],
+				JointType:  rw[1],
+				TypeShort:  tshort,
+				ClassShort: cshort,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[3])
+		}
+
+		// 3. Muscles
+		js.WriteString(`},"muscle":{`)
+		mres := runQuery(p, `SELECT name, latin_name, region, row_to_json(t)::text FROM muscles t ORDER BY region ASC, name ASC`)
+		for i, rw := range mres.Rows {
+			muscles = append(muscles, muscleCard{
+				Name:      rw[0],
+				LatinName: rw[1],
+				Region:    rw[2],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[3])
+		}
+
+		// 4. Organ Systems
+		js.WriteString(`},"organ":{`)
+		ores := runQuery(p, `SELECT name, primary_organs, row_to_json(t)::text FROM organ_systems t ORDER BY name ASC`)
+		for i, rw := range ores.Rows {
+			oshort := rw[1]
+			if len(oshort) > 36 {
+				oshort = oshort[:36] + "…"
+			}
+			organs = append(organs, organCard{
+				Name:        rw[0],
+				OrgansShort: oshort,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[2])
+		}
+		js.WriteString(`}}`)
+
+		data := map[string]any{
+			"Title":   "anatomy",
+			"Bones":   bones,
+			"Joints":  joints,
+			"Muscles": muscles,
+			"Organs":  organs,
+			"JSON":    template.JS(js.String()),
+		}
+		_ = tpl.ExecuteTemplate(w, "anatomy", data)
 	})
 
 	log.Println("rock-sql listening on :8080")
