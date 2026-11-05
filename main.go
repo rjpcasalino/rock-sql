@@ -202,6 +202,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
   <button type="button" class="btn" onclick="filterAstro('ocean', this)">🌊 Ocean Moons</button>
   <button type="button" class="btn" onclick="filterAstro('exoplanet', this)">🔭 Exoplanets (HZ)</button>
   <button type="button" class="btn" onclick="filterAstro('messier', this)">🌌 Messier Deep Sky</button>
+  <button type="button" class="btn" onclick="filterAstro('constellation', this)">✨ Constellations</button>
 </div>
 <div class="astro-grid" id="astro-list">
 {{range .Planets}}
@@ -252,6 +253,18 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
   <span class="astro-badge badge-deepsky">{{.Type}}</span>
 </div>
 {{end}}
+{{range .Constellations}}
+<div class="astro-card" data-cat="constellation" onclick="inspectAstro('constellation', '{{.Abbr}}')">
+  <div class="astro-head">
+    <span class="astro-orb" style="background:#d4b47b"></span>
+    <div>
+      <div class="astro-title">{{.Name}} ({{.Abbr}})</div>
+      <div class="astro-sub">★ {{.BrightStar}} · {{.Area}} sq°</div>
+    </div>
+  </div>
+  <span class="astro-badge badge-dwarf">{{.Quadrant}}</span>
+</div>
+{{end}}
 </div>
 </div>
 
@@ -291,6 +304,8 @@ function inspectAstro(kind, key) {
     title = '🔭 ' + obj.name + ' (' + obj.planet_type + ' in ' + obj.constellation + ')';
   } else if (kind === 'messier') {
     title = '🌌 ' + obj.messier_id + ' — ' + obj.common_name + ' (' + obj.object_type + ')';
+  } else if (kind === 'constellation') {
+    title = '✨ ' + obj.name + ' (' + obj.abbreviation + ' · ' + obj.genitive + ')';
   }
   let h = '<h2>' + title + '</h2><table>';
   for (const k in obj) {
@@ -452,11 +467,15 @@ func main() {
 		type messierCard struct {
 			Id, Name, Type, Constellation, Mag string
 		}
+		type constCard struct {
+			Abbr, Name, Genitive, BrightStar, Area, Quadrant string
+		}
 
 		var planets []planetCard
 		var moons []moonCard
 		var exoplanets []exoCard
 		var messier []messierCard
+		var constellations []constCard
 
 		var js strings.Builder
 		js.WriteString(`{"planet":{`)
@@ -539,6 +558,23 @@ func main() {
 			}
 			fmt.Fprintf(&js, "%q:%s", rw[0], rw[5])
 		}
+				// 5. Constellations
+		js.WriteString(`},"constellation":{`)
+		csres := runQuery(p, `SELECT abbreviation, name, genitive, brightest_star, area_sq_deg, quadrant, row_to_json(t)::text FROM constellations t ORDER BY name ASC`)
+		for i, rw := range csres.Rows {
+			constellations = append(constellations, constCard{
+				Abbr:       rw[0],
+				Name:       rw[1],
+				Genitive:   rw[2],
+				BrightStar: rw[3],
+				Area:       rw[4],
+				Quadrant:   rw[5],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[6])
+		}
 		js.WriteString(`}}`)
 
 		data := map[string]any{
@@ -547,6 +583,7 @@ func main() {
 			"Moons":      moons,
 			"Exoplanets": exoplanets,
 			"Messier":    messier,
+			"Constellations": constellations,
 			"JSON":       template.JS(js.String()),
 		}
 		_ = tpl.ExecuteTemplate(w, "astronomy", data)
