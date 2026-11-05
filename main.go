@@ -1,4 +1,4 @@
-// rock-sql: a tiny read-only PostgreSQL explorer + periodic table for rock.home.arpa
+// rock-sql: a tiny read-only PostgreSQL explorer + periodic table + astronomy for rock.home.arpa
 package main
 
 import (
@@ -20,6 +20,7 @@ import (
 )
 
 var databases = []struct{ Name, Blurb string }{
+	{"astronomy", "Solar system, planetary moons, exoplanets & Messier deep sky"},
 	{"elements", "The periodic table: 118 elements, 28 properties each"},
 	{"library", "Your nookbook library: books, authors, book_authors"},
 	{"pagila", "DVD rental store: films, actors, customers, rentals, payments"},
@@ -133,10 +134,12 @@ table{border-collapse:collapse;font-size:12px;width:100%}th,td{text-align:left;p
 th{color:var(--gold);font-weight:normal;position:sticky;top:0;background:var(--panel)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 textarea{width:100%;min-height:140px;background:#101015;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font:13px ui-monospace,monospace}
-button,.btn{background:#2a2a37;color:var(--text);border:1px solid var(--cyan);padding:6px 14px;border-radius:5px;font-family:inherit;cursor:pointer}
+button,.btn{background:#2a2a37;color:var(--text);border:1px solid var(--cyan);padding:6px 14px;border-radius:5px;font-family:inherit;cursor:pointer;display:inline-block}
+button:hover,.btn:hover{background:#353545}
+.btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
 </style></head><body><div class="wrap">
-<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/sql?db=pagila">sql console</a><a href="/puzzles">puzzles</a></nav></header>{{end}}
+<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/sql?db=astronomy">sql console</a><a href="/puzzles">puzzles</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
 {{define "result"}}{{if .Err}}<div class="err">ERROR: {{.Err}}</div>{{else}}
 <div class="muted">{{len .Rows}} row(s){{if .Truncate}} (capped at 1000){{end}} in {{.Elapsed}}</div>
@@ -164,7 +167,7 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 {{if .Ran}}<div class="card">{{template "result" .Res}}</div>{{end}}
 <script>document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))e.target.form.submit()})</script>{{template "bottom" .}}{{end}}
 
-{{define "puzzles"}}{{template "top" .}}{{range .}}<div class="card"><h2>{{.Title}} <span class="muted">({{.Db}})</span></h2>
+{{define "puzzles"}}{{template "top" .}}{{range .List}}<div class="card"><h2>{{.Title}} <span class="muted">({{.Db}})</span></h2>
 <div>{{.Ask}}</div><div class="chips" style="margin-top:6px"><a href="/sql?db={{.Db}}&q={{q .Starter}}">try it →</a>
 <a href="/sql?db={{.Db}}&q={{q .Answer}}">peek at an answer</a></div></div>{{end}}{{template "bottom" .}}{{end}}
 
@@ -181,11 +184,160 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 for(const k in e){if(e[k]!==null&&e[k]!=='')h+='<tr><th style="width:220px">'+k+'</th><td>'+e[k]+'</td></tr>'}
 document.getElementById('info').innerHTML=h+'</table><div style="margin-top:8px"><a href="/sql?db=elements&q='+encodeURIComponent('SELECT * FROM periodic_table WHERE "AtomicNumber" = '+n)+'">open in console →</a></div>'}</script>
 {{template "bottom" .}}{{end}}
+
+{{define "astronomy"}}{{template "top" .}}
+<style>
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.astro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.astro-card{background:#181822;border:1px solid var(--border);border-radius:6px;padding:10px;cursor:pointer;transition:border-color .15s}
+.astro-card:hover{border-color:var(--cyan);outline:1px solid var(--cyan)}
+.astro-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.astro-orb{width:22px;height:22px;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 6px rgba(0,0,0,0.6)}
+.astro-title{font-size:13px;font-weight:bold;color:var(--text)}
+.astro-sub{font-size:11px;color:var(--muted)}
+.astro-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;margin-top:4px}
+.badge-hz{background:#2b4436;color:var(--mint)}
+.badge-ocean{background:#23374d;color:var(--cyan)}
+.badge-dwarf{background:#3a3223;color:var(--gold)}
+.badge-giant{background:#3d2b45;color:#c4a7e7}
+.badge-terrestrial{background:#452828;color:var(--rose)}
+.badge-deepsky{background:#223344;color:var(--blue)}
+</style>
+<div class="card">
+<h2>🪐 Astronomy & Solar System Explorer <span class="muted">(click any celestial body to inspect & query)</span></h2>
+<div class="tabbar">
+  <button type="button" class="btn active" onclick="filterAstro('all', this)">All Solar System</button>
+  <button type="button" class="btn" onclick="filterAstro('terrestrial', this)">Terrestrial</button>
+  <button type="button" class="btn" onclick="filterAstro('giant', this)">Gas & Ice Giants</button>
+  <button type="button" class="btn" onclick="filterAstro('dwarf', this)">Dwarf Planets</button>
+  <button type="button" class="btn" onclick="filterAstro('ocean', this)">🌊 Ocean Moons</button>
+  <button type="button" class="btn" onclick="filterAstro('exoplanet', this)">🔭 Exoplanets (HZ)</button>
+  <button type="button" class="btn" onclick="filterAstro('messier', this)">🌌 Messier Deep Sky</button>
+</div>
+<div class="astro-grid" id="astro-list">
+{{range .Planets}}
+<div class="astro-card" data-cat="{{.Cat}}" onclick="inspectAstro('planet', '{{.Name}}')">
+  <div class="astro-head">
+    <span class="astro-orb" style="background:{{.Color}}"></span>
+    <div>
+      <div class="astro-title">{{.Name}}{{if .HasRings}} 🪐{{end}}</div>
+      <div class="astro-sub">{{.Dist}} AU · {{.Moons}} moon(s)</div>
+    </div>
+  </div>
+  <span class="astro-badge {{.BadgeClass}}">{{.Type}}</span>
+</div>
+{{end}}
+{{range .Moons}}
+<div class="astro-card" data-cat="moon{{if .Ocean}} ocean{{end}}" onclick="inspectAstro('moon', '{{.Name}}')">
+  <div class="astro-head">
+    <span class="astro-orb" style="background:#a5a5b5"></span>
+    <div>
+      <div class="astro-title">{{.Name}}{{if .Ocean}} 🌊{{end}}</div>
+      <div class="astro-sub">{{.Planet}} · {{.Diam}} km</div>
+    </div>
+  </div>
+  <span class="astro-badge {{if .Ocean}}badge-ocean{{else}}badge-dwarf{{end}}">{{if .Ocean}}Subsurface Ocean{{else}}Major Moon{{end}}</span>
+</div>
+{{end}}
+{{range .Exoplanets}}
+<div class="astro-card" data-cat="exoplanet" onclick="inspectAstro('exoplanet', '{{.Name}}')">
+  <div class="astro-head">
+    <span class="astro-orb" style="background:#5577aa"></span>
+    <div>
+      <div class="astro-title">{{.Name}}{{if .HZ}} 🌱{{end}}</div>
+      <div class="astro-sub">{{.Host}} · {{.Dist}} ly</div>
+    </div>
+  </div>
+  <span class="astro-badge {{if .HZ}}badge-hz{{else}}badge-giant{{end}}">{{.Type}}{{if .HZ}} · Habitable{{end}}</span>
+</div>
+{{end}}
+{{range .Messier}}
+<div class="astro-card" data-cat="messier" onclick="inspectAstro('messier', '{{.Id}}')">
+  <div class="astro-head">
+    <span class="astro-orb" style="background:#b893ce"></span>
+    <div>
+      <div class="astro-title">{{.Id}}: {{.Name}}</div>
+      <div class="astro-sub">{{.Constellation}} · mag {{.Mag}}</div>
+    </div>
+  </div>
+  <span class="astro-badge badge-deepsky">{{.Type}}</span>
+</div>
+{{end}}
+</div>
+</div>
+
+<div class="card" id="astro-detail">
+<span class="muted">Select a celestial body above to inspect its properties and launch queries…</span>
+</div>
+
+<script>
+const AstroData = {{.JSON}};
+function filterAstro(cat, btn) {
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const cards = document.querySelectorAll('.astro-card');
+  cards.forEach(c => {
+    const cats = (c.getAttribute('data-cat') || '').split(' ');
+    if (cat === 'all') {
+      c.style.display = (cats.includes('terrestrial') || cats.includes('giant') || cats.includes('dwarf')) ? 'block' : 'none';
+    } else if (cats.includes(cat)) {
+      c.style.display = 'block';
+    } else {
+      c.style.display = 'none';
+    }
+  });
+}
+filterAstro('all', document.querySelector('.tabbar button'));
+
+function inspectAstro(kind, key) {
+  const map = AstroData[kind] || {};
+  const obj = map[key];
+  if (!obj) return;
+  let title = key;
+  let sql = '';
+  if (kind === 'planet') {
+    title = '🪐 ' + obj.name + ' (' + obj.type + ')';
+    sql = 'SELECT * FROM planets WHERE name = \'' + obj.name + '\'';
+  } else if (kind === 'moon') {
+    title = '🌕 ' + obj.name + ' (Moon of ' + obj.planet_name + ')';
+    sql = 'SELECT * FROM moons WHERE name = \'' + obj.name + '\'';
+  } else if (kind === 'exoplanet') {
+    title = '🔭 ' + obj.name + ' (' + obj.planet_type + ' in ' + obj.constellation + ')';
+    sql = 'SELECT * FROM exoplanets WHERE name = \'' + obj.name + '\'';
+  } else if (kind === 'messier') {
+    title = '🌌 ' + obj.messier_id + ' — ' + obj.common_name + ' (' + obj.object_type + ')';
+    sql = 'SELECT * FROM messier_catalog WHERE messier_id = \'' + obj.messier_id + '\'';
+  }
+  let h = '<h2>' + title + '</h2><table>';
+  for (const k in obj) {
+    if (obj[k] !== null && obj[k] !== '') {
+      h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
+    }
+  }
+  h += '</table><div style="margin-top:10px"><a class="btn" href="/sql?db=astronomy&q=' + encodeURIComponent(sql) + '">▶ open in SQL console</a>';
+  if (kind === 'planet') {
+    h += ' <a class="btn" style="margin-left:8px" href="/sql?db=astronomy&q=' + encodeURIComponent('SELECT * FROM moons WHERE planet_name = \'' + obj.name + '\'') + '">view moons in console</a>';
+  }
+  h += '</div>';
+  document.getElementById('astro-detail').innerHTML = h;
+  document.getElementById('astro-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+{{template "bottom" .}}{{end}}
 `))
 
 type puzzle struct{ Title, Db, Ask, Starter, Answer string }
 
 var puzzles = []puzzle{
+	{"Habitable Worlds", "astronomy", "Find all confirmed exoplanets within 100 light years located in their star's habitable zone.",
+		"SELECT name, host_star, distance_light_years, planet_type\nFROM exoplanets\nWHERE habitable_zone = true\nORDER BY distance_light_years;",
+		"SELECT name, host_star, distance_light_years, planet_type, equilibrium_temp_k, discovery_method\nFROM exoplanets\nWHERE habitable_zone = true AND distance_light_years <= 100\nORDER BY distance_light_years;"},
+	{"Ocean Worlds", "astronomy", "List all solar system moons with subsurface liquid oceans, their parent planet, and size relative to parent.",
+		"SELECT name, planet_name, diameter_km, has_subsurface_ocean\nFROM moons\nWHERE has_subsurface_ocean = true\nORDER BY diameter_km DESC;",
+		"SELECT m.name AS moon, m.planet_name AS primary_planet, p.type, m.diameter_km AS moon_km, p.diameter_km AS planet_km,\n       round(m.diameter_km / p.diameter_km * 100, 2) AS pct_of_planet, m.notes\nFROM moons m\nJOIN planets p ON m.planet_name = p.name\nWHERE m.has_subsurface_ocean = true\nORDER BY m.diameter_km DESC;"},
+	{"Deep Sky by Constellation", "astronomy", "Count Messier objects per constellation and find the brightest object in each.",
+		"SELECT constellation, count(*)\nFROM messier_catalog\nGROUP BY 1 ORDER BY 2 DESC;",
+		"SELECT constellation, count(*) AS total_objects, min(apparent_magnitude) AS brightest_mag,\n       (SELECT common_name FROM messier_catalog m2 WHERE m2.constellation = m1.constellation ORDER BY apparent_magnitude ASC LIMIT 1) AS brightest_name\nFROM messier_catalog m1\nGROUP BY constellation\nORDER BY total_objects DESC, brightest_mag ASC;"},
 	{"Top 3 films per category", "pagila", "For each category, list the 3 films rented the most. (window functions: RANK)",
 		"SELECT c.name, f.title\nFROM film f\nJOIN film_category fc USING (film_id)\nJOIN category c USING (category_id)\nLIMIT 20;",
 		"SELECT name, title, rentals FROM (\n  SELECT c.name, f.title, count(r.rental_id) AS rentals,\n         rank() OVER (PARTITION BY c.name ORDER BY count(r.rental_id) DESC) AS rk\n  FROM film f\n  JOIN film_category fc USING (film_id)\n  JOIN category c USING (category_id)\n  JOIN inventory i USING (film_id)\n  JOIN rental r USING (inventory_id)\n  GROUP BY c.name, f.title\n) t WHERE rk <= 3 ORDER BY name, rk;"},
@@ -193,11 +345,11 @@ var puzzles = []puzzle{
 		"SELECT payment_date::date AS day, sum(amount)\nFROM payment\nGROUP BY 1 ORDER BY 1;",
 		"SELECT day, total, sum(total) OVER (ORDER BY day) AS running\nFROM (SELECT payment_date::date AS day, sum(amount) AS total FROM payment GROUP BY 1) t\nORDER BY day;"},
 	{"Best-selling genres", "chinook", "Which genres earn the most money? (multi-join + GROUP BY)",
-		"SELECT * FROM genre;",
-		"SELECT g.name, sum(il.unit_price * il.quantity) AS revenue\nFROM invoice_line il\nJOIN track t USING (track_id)\nJOIN genre g USING (genre_id)\nGROUP BY g.name ORDER BY revenue DESC;"},
+		"SELECT * FROM \"Genre\";",
+		"SELECT g.\"Name\", sum(il.\"UnitPrice\" * il.\"Quantity\") AS revenue\nFROM \"InvoiceLine\" il\nJOIN \"Track\" t USING (\"TrackId\")\nJOIN \"Genre\" g USING (\"GenreId\")\nGROUP BY g.\"Name\" ORDER BY revenue DESC;"},
 	{"Who survived?", "titanic", "Survival rate by passenger class and sex. (conditional aggregates)",
-		"SELECT * FROM titanic LIMIT 10;",
-		"SELECT * FROM titanic LIMIT 1; -- inspect columns, then:\n-- SELECT pclass, sex, round(avg(survived::int)*100,1) AS pct FROM titanic GROUP BY 1,2 ORDER BY 1,2;"},
+		"SELECT * FROM passenger LIMIT 10;",
+		"SELECT pclass, sex, count(*) AS passengers, round(avg(survived::int)*100, 1) AS pct_survived\nFROM passenger\nGROUP BY 1, 2\nORDER BY 1, 2;"},
 	{"Salary raises", "employees", "Find the 10 biggest single salary jumps ever given. (LAG)",
 		"SELECT * FROM employees.salary LIMIT 10;",
 		"SELECT employee_id, from_date, amount,\n       amount - lag(amount) OVER (PARTITION BY employee_id ORDER BY from_date) AS raise\nFROM employees.salary\nORDER BY raise DESC NULLS LAST LIMIT 10;"},
@@ -205,8 +357,8 @@ var puzzles = []puzzle{
 		"SELECT \"Element\", \"Year\", \"Discoverer\" FROM periodic_table ORDER BY \"Year\";",
 		"SELECT (\"Year\"/100+1) || 'th c.' AS century, count(*), mode() WITHIN GROUP (ORDER BY \"Discoverer\") AS top_discoverer\nFROM periodic_table WHERE \"Year\" IS NOT NULL\nGROUP BY 1 ORDER BY 1;"},
 	{"Biggest LEGO sets", "lego", "Largest sets by number of parts, per decade.",
-		"SELECT * FROM sets LIMIT 10;",
-		"SELECT decade, name, num_parts FROM (\n  SELECT (year/10)*10 AS decade, name, num_parts,\n         row_number() OVER (PARTITION BY (year/10)*10 ORDER BY num_parts DESC) rn\n  FROM sets) t WHERE rn = 1 ORDER BY decade;"},
+		"SELECT * FROM lego_sets LIMIT 10;",
+		"SELECT decade, name, num_parts FROM (\n  SELECT (year/10)*10 AS decade, name, num_parts,\n         row_number() OVER (PARTITION BY (year/10)*10 ORDER BY num_parts DESC) rn\n  FROM lego_sets) t WHERE rn = 1 ORDER BY decade;"},
 	{"Mandelbrot in SQL", "elements", "Just for fun: recursive CTE that draws the Mandelbrot set in ASCII.",
 		"WITH RECURSIVE x(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM x WHERE i < 9) SELECT * FROM x;",
 		"WITH RECURSIVE\n x(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM x WHERE i<67),\n y(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM y WHERE i<23),\n m(iter,cx,cy,x,y) AS (\n  SELECT 0, x.i*3.0/67-2.2, y.i*2.4/23-1.2, 0.0::float, 0.0::float FROM x, y\n  UNION ALL\n  SELECT iter+1, cx, cy, x*x-y*y+cx, 2*x*y+cy FROM m WHERE x*x+y*y<4 AND iter<28)\nSELECT string_agg(substr(' .:-=+*#%@', least(10, 1+max_iter/3), 1), '' ORDER BY cx) AS mandelbrot\nFROM (SELECT cx, cy, max(iter) max_iter FROM m GROUP BY cx, cy) t\nGROUP BY cy ORDER BY cy;"},
@@ -281,7 +433,7 @@ func main() {
 	http.HandleFunc("/sql", func(w http.ResponseWriter, r *http.Request) {
 		db := r.URL.Query().Get("db")
 		if db == "" {
-			db = "pagila"
+			db = "astronomy"
 		}
 		q := r.URL.Query().Get("q")
 		data := map[string]any{"Title": "console", "Db": db, "Q": q, "Dbs": databases, "Ran": false}
@@ -294,7 +446,7 @@ func main() {
 	})
 
 	http.HandleFunc("/puzzles", func(w http.ResponseWriter, r *http.Request) {
-		_ = tpl.ExecuteTemplate(w, "puzzles", puzzles)
+		_ = tpl.ExecuteTemplate(w, "puzzles", map[string]any{"Title": "puzzles", "List": puzzles})
 	})
 
 	http.HandleFunc("/elements", func(w http.ResponseWriter, r *http.Request) {
@@ -352,6 +504,128 @@ func main() {
 		}
 		js.WriteString("}")
 		_ = tpl.ExecuteTemplate(w, "elements", map[string]any{"Title": "periodic table", "Cells": cells, "Colors": colors, "JSON": template.JS(js.String())})
+	})
+
+	http.HandleFunc("/astronomy", func(w http.ResponseWriter, r *http.Request) {
+		p, err := pool("astronomy")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		type planetCard struct {
+			Name, Type, Color, Dist, Moons, Cat, BadgeClass string
+			HasRings                                        bool
+		}
+		type moonCard struct {
+			Name, Planet, Diam string
+			Ocean, Atm         bool
+		}
+		type exoCard struct {
+			Name, Host, Dist, Type string
+			HZ                     bool
+		}
+		type messierCard struct {
+			Id, Name, Type, Constellation, Mag string
+		}
+
+		var planets []planetCard
+		var moons []moonCard
+		var exoplanets []exoCard
+		var messier []messierCard
+
+		var js strings.Builder
+		js.WriteString(`{"planet":{`)
+
+		// 1. Planets
+		pres := runQuery(p, `SELECT name, type, distance_from_sun_au, moons_count, has_rings, color_hex, row_to_json(t)::text FROM planets t ORDER BY order_from_sun`)
+		for i, rw := range pres.Rows {
+			cat := "terrestrial"
+			bclass := "badge-terrestrial"
+			if strings.Contains(rw[1], "Gas") || strings.Contains(rw[1], "Ice") {
+				cat = "giant"
+				bclass = "badge-giant"
+			} else if strings.Contains(rw[1], "Dwarf") {
+				cat = "dwarf"
+				bclass = "badge-dwarf"
+			}
+			planets = append(planets, planetCard{
+				Name:       rw[0],
+				Type:       rw[1],
+				Dist:       rw[2],
+				Moons:      rw[3],
+				HasRings:   rw[4] == "true",
+				Color:      rw[5],
+				Cat:        cat,
+				BadgeClass: bclass,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[6])
+		}
+
+		// 2. Moons
+		js.WriteString(`},"moon":{`)
+		mres := runQuery(p, `SELECT name, planet_name, diameter_km, has_subsurface_ocean, has_atmosphere, row_to_json(t)::text FROM moons t ORDER BY diameter_km DESC`)
+		for i, rw := range mres.Rows {
+			moons = append(moons, moonCard{
+				Name:   rw[0],
+				Planet: rw[1],
+				Diam:   rw[2],
+				Ocean:  rw[3] == "true",
+				Atm:    rw[4] == "true",
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[5])
+		}
+
+		// 3. Exoplanets
+		js.WriteString(`},"exoplanet":{`)
+		eres := runQuery(p, `SELECT name, host_star, distance_light_years, planet_type, habitable_zone, row_to_json(t)::text FROM exoplanets t ORDER BY distance_light_years ASC`)
+		for i, rw := range eres.Rows {
+			exoplanets = append(exoplanets, exoCard{
+				Name: rw[0],
+				Host: rw[1],
+				Dist: rw[2],
+				Type: rw[3],
+				HZ:   rw[4] == "true",
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[5])
+		}
+
+		// 4. Messier
+		js.WriteString(`},"messier":{`)
+		cres := runQuery(p, `SELECT messier_id, common_name, object_type, constellation, apparent_magnitude, row_to_json(t)::text FROM messier_catalog t ORDER BY apparent_magnitude ASC`)
+		for i, rw := range cres.Rows {
+			messier = append(messier, messierCard{
+				Id:            rw[0],
+				Name:          rw[1],
+				Type:          rw[2],
+				Constellation: rw[3],
+				Mag:           rw[4],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[5])
+		}
+		js.WriteString(`}}`)
+
+		data := map[string]any{
+			"Title":      "astronomy",
+			"Planets":    planets,
+			"Moons":      moons,
+			"Exoplanets": exoplanets,
+			"Messier":    messier,
+			"JSON":       template.JS(js.String()),
+		}
+		_ = tpl.ExecuteTemplate(w, "astronomy", data)
 	})
 
 	log.Println("rock-sql listening on :8080")
