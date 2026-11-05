@@ -139,7 +139,7 @@ button:hover,.btn:hover{background:#353545}
 .btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
 </style></head><body><div class="wrap">
-<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/sql?db=astronomy">sql console</a></nav></header>{{end}}
+<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
 {{define "result"}}{{if .Err}}<div class="err">ERROR: {{.Err}}</div>{{else}}
 <div class="muted">{{len .Rows}} row(s){{if .Truncate}} (capped at 1000){{end}} in {{.Elapsed}}</div>
@@ -150,22 +150,15 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 }).Parse(base + `
 {{define "home"}}{{template "top" .}}<div class="grid">{{range .Dbs}}<div class="card">
 <h2><a href="/db/{{.Name}}">{{.Name}}</a></h2><div class="muted">{{.Blurb}}</div>
-<div style="margin-top:8px">{{.Size}} · {{.Tables}} tables · <a href="/sql?db={{.Name}}">query →</a></div></div>{{end}}</div>{{template "bottom" .}}{{end}}
+<div style="margin-top:8px">{{.Size}} · {{.Tables}} tables · <a href="/db/{{.Name}}">explore →</a></div></div>{{end}}</div>{{template "bottom" .}}{{end}}
 
 {{define "db"}}{{template "top" .}}<div class="card"><h2>{{.Name}}</h2><div class="muted">{{.Blurb}}</div></div>
 <div class="card"><h2>Tables</h2><table><tr><th>table</th><th>~rows</th><th>size</th><th>columns</th></tr>
 {{$d:=.Name}}{{range .Tables}}<tr><td><a href="/db/{{$d}}/t/{{.Schema}}/{{.Name}}">{{if ne .Schema "public"}}{{.Schema}}.{{end}}{{.Name}}</a></td><td>{{.Rows}}</td><td>{{.Size}}</td><td class="muted">{{.Cols}}</td></tr>{{end}}</table></div>{{template "bottom" .}}{{end}}
 
 {{define "table"}}{{template "top" .}}<div class="card"><h2><a href="/db/{{.Db}}">{{.Db}}</a> / {{.Table}}</h2>
-<div>page {{.Page}} · {{if gt .Page 1}}<a href="?page={{.Prev}}">← prev</a> · {{end}}<a href="?page={{.Next}}">next →</a> · <a href="/sql?db={{.Db}}&q={{q .SQL}}">open in console</a></div></div>
+<div>page {{.Page}} · {{if gt .Page 1}}<a href="?page={{.Prev}}">← prev</a> · {{end}}<a href="?page={{.Next}}">next →</a></div></div>
 <div class="card">{{template "result" .Res}}</div>{{template "bottom" .}}{{end}}
-
-{{define "sql"}}{{template "top" .}}<div class="card"><form method="GET" action="/sql">
-<div style="margin-bottom:8px">database: <select name="db">{{$c:=.Db}}{{range .Dbs}}<option {{if eq .Name $c}}selected{{end}}>{{.Name}}</option>{{end}}</select>
-<span class="muted"> read-only · 15s timeout · 1000 row cap · Ctrl+Enter runs</span></div>
-<textarea name="q" id="q" autofocus>{{.Q}}</textarea><div style="margin-top:8px"><button type="submit">▶ Run</button></div></form></div>
-{{if .Ran}}<div class="card">{{template "result" .Res}}</div>{{end}}
-<script>document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))e.target.form.submit()})</script>{{template "bottom" .}}{{end}}
 
 {{define "elements"}}{{template "top" .}}
 <style>.pt{display:grid;grid-template-columns:repeat(18,1fr);gap:3px}.el{border-radius:4px;padding:4px 3px;min-height:58px;font-size:10px;color:#16161c;cursor:pointer;position:relative}
@@ -178,7 +171,7 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 <div class="card" id="info"><span class="muted">Select an element…</span></div>
 <script>const E={{.JSON}};function show(n){const e=E[n];let h='<h2>'+e.Element+' ('+e.Symbol+') — #'+n+'</h2><table>';
 for(const k in e){if(e[k]!==null&&e[k]!=='')h+='<tr><th style="width:220px">'+k+'</th><td>'+e[k]+'</td></tr>'}
-document.getElementById('info').innerHTML=h+'</table><div style="margin-top:8px"><a href="/sql?db=elements&q='+encodeURIComponent('SELECT * FROM periodic_table WHERE "AtomicNumber" = '+n)+'">open in console →</a></div>'}</script>
+document.getElementById('info').innerHTML=h+'</table>'}</script>
 {{template "bottom" .}}{{end}}
 
 {{define "astronomy"}}{{template "top" .}}
@@ -290,19 +283,14 @@ function inspectAstro(kind, key) {
   const obj = map[key];
   if (!obj) return;
   let title = key;
-  let sql = '';
   if (kind === 'planet') {
     title = '🪐 ' + obj.name + ' (' + obj.type + ')';
-    sql = 'SELECT * FROM planets WHERE name = \'' + obj.name + '\'';
   } else if (kind === 'moon') {
     title = '🌕 ' + obj.name + ' (Moon of ' + obj.planet_name + ')';
-    sql = 'SELECT * FROM moons WHERE name = \'' + obj.name + '\'';
   } else if (kind === 'exoplanet') {
     title = '🔭 ' + obj.name + ' (' + obj.planet_type + ' in ' + obj.constellation + ')';
-    sql = 'SELECT * FROM exoplanets WHERE name = \'' + obj.name + '\'';
   } else if (kind === 'messier') {
     title = '🌌 ' + obj.messier_id + ' — ' + obj.common_name + ' (' + obj.object_type + ')';
-    sql = 'SELECT * FROM messier_catalog WHERE messier_id = \'' + obj.messier_id + '\'';
   }
   let h = '<h2>' + title + '</h2><table>';
   for (const k in obj) {
@@ -310,11 +298,7 @@ function inspectAstro(kind, key) {
       h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
     }
   }
-  h += '</table><div style="margin-top:10px"><a class="btn" href="/sql?db=astronomy&q=' + encodeURIComponent(sql) + '">▶ open in SQL console</a>';
-  if (kind === 'planet') {
-    h += ' <a class="btn" style="margin-left:8px" href="/sql?db=astronomy&q=' + encodeURIComponent('SELECT * FROM moons WHERE planet_name = \'' + obj.name + '\'') + '">view moons in console</a>';
-  }
-  h += '</div>';
+  h += '</table>';
   document.getElementById('astro-detail').innerHTML = h;
   document.getElementById('astro-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -388,20 +372,6 @@ func main() {
 		_ = tpl.ExecuteTemplate(w, "db", map[string]any{"Title": name, "Name": name, "Blurb": blurb, "Tables": tables})
 	})
 
-	http.HandleFunc("/sql", func(w http.ResponseWriter, r *http.Request) {
-		db := r.URL.Query().Get("db")
-		if db == "" {
-			db = "astronomy"
-		}
-		q := r.URL.Query().Get("q")
-		data := map[string]any{"Title": "console", "Db": db, "Q": q, "Dbs": databases, "Ran": false}
-		if strings.TrimSpace(q) != "" {
-			if p, err := pool(db); err == nil {
-				data["Res"], data["Ran"] = runQuery(p, q), true
-			}
-		}
-		_ = tpl.ExecuteTemplate(w, "sql", data)
-	})
 
 	http.HandleFunc("/elements", func(w http.ResponseWriter, r *http.Request) {
 		p, err := pool("elements")
