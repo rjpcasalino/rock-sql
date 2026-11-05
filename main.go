@@ -21,6 +21,7 @@ import (
 
 var databases = []struct{ Name, Blurb string }{
 	{"astronomy", "Solar system, planetary moons, exoplanets & Messier deep sky"},
+	{"math", "Constants, polyhedra, number sequences, landmark theorems & curves"},
 	{"elements", "The periodic table: 118 elements, 28 properties each"},
 	{"library", "Your nookbook library: books, authors, book_authors"},
 	{"pagila", "DVD rental store: films, actors, customers, rentals, payments"},
@@ -139,7 +140,7 @@ button:hover,.btn:hover{background:#353545}
 .btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
 </style></head><body><div class="wrap">
-<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a></nav></header>{{end}}
+<header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/math">mathematics</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
 {{define "result"}}{{if .Err}}<div class="err">ERROR: {{.Err}}</div>{{else}}
 <div class="muted">{{len .Rows}} row(s){{if .Truncate}} (capped at 1000){{end}} in {{.Elapsed}}</div>
@@ -316,6 +317,146 @@ function inspectAstro(kind, key) {
   h += '</table>';
   document.getElementById('astro-detail').innerHTML = h;
   document.getElementById('astro-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+{{template "bottom" .}}{{end}}
+
+{{define "math"}}{{template "top" .}}
+<style>
+.tabbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.math-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.math-card{background:#181822;border:1px solid var(--border);border-radius:6px;padding:10px;cursor:pointer;transition:border-color .15s}
+.math-card:hover{border-color:var(--cyan);outline:1px solid var(--cyan)}
+.math-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.math-sym{min-width:32px;height:32px;border-radius:6px;background:#252535;color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;flex-shrink:0;border:1px solid var(--border)}
+.math-title{font-size:13px;font-weight:bold;color:var(--text)}
+.math-sub{font-size:11px;color:var(--muted)}
+.math-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;margin-top:4px}
+.badge-const{background:#263c45;color:var(--cyan)}
+.badge-poly{background:#3a3223;color:var(--gold)}
+.badge-seq{background:#2b4436;color:var(--mint)}
+.badge-thm{background:#3d2b45;color:#c4a7e7}
+.badge-crv{background:#452828;color:var(--rose)}
+</style>
+<div class="card">
+<h2>📐 Mathematics & Geometry Explorer <span class="muted">(click any item to inspect formulas & properties)</span></h2>
+<div class="tabbar">
+  <button type="button" class="btn active" onclick="filterMath('all', this)">All Topics</button>
+  <button type="button" class="btn" onclick="filterMath('const', this)">π Constants</button>
+  <button type="button" class="btn" onclick="filterMath('poly', this)">📦 Polyhedra (3D)</button>
+  <button type="button" class="btn" onclick="filterMath('seq', this)">🔢 Sequences & Classes</button>
+  <button type="button" class="btn" onclick="filterMath('thm', this)">📜 Landmark Theorems</button>
+  <button type="button" class="btn" onclick="filterMath('crv', this)">🌀 Geometric Curves</button>
+</div>
+<div class="math-grid" id="math-list">
+{{range .Constants}}
+<div class="math-card" data-cat="const" onclick="inspectMath('const', '{{.Symbol}}')">
+  <div class="math-head">
+    <div class="math-sym">{{.Symbol}}</div>
+    <div>
+      <div class="math-title">{{.Name}}</div>
+      <div class="math-sub">{{.ValApprox}}</div>
+    </div>
+  </div>
+  <span class="math-badge badge-const">{{.Domain}}</span>
+</div>
+{{end}}
+{{range .Polyhedra}}
+<div class="math-card" data-cat="poly" onclick="inspectMath('poly', '{{.Name}}')">
+  <div class="math-head">
+    <div class="math-sym" style="color:var(--gold)">{{.Schlafli}}</div>
+    <div>
+      <div class="math-title">{{.Name}}</div>
+      <div class="math-sub">V:{{.V}} · E:{{.E}} · F:{{.F}}</div>
+    </div>
+  </div>
+  <span class="math-badge badge-poly">{{.Family}}</span>
+</div>
+{{end}}
+{{range .NumberClasses}}
+<div class="math-card" data-cat="seq" onclick="inspectMath('seq', '{{.Name}}')">
+  <div class="math-head">
+    <div class="math-sym" style="color:var(--mint)">{{.Sym}}</div>
+    <div>
+      <div class="math-title">{{.Name}}</div>
+      <div class="math-sub">{{.Oeis}}</div>
+    </div>
+  </div>
+  <span class="math-badge badge-seq">{{.FirstPreview}}</span>
+</div>
+{{end}}
+{{range .Theorems}}
+<div class="math-card" data-cat="thm" onclick="inspectMath('thm', '{{.Name}}')">
+  <div class="math-head">
+    <div class="math-sym" style="color:#c4a7e7">QED</div>
+    <div>
+      <div class="math-title">{{.Name}}</div>
+      <div class="math-sub">{{.Prover}} ({{.Year}})</div>
+    </div>
+  </div>
+  <span class="math-badge badge-thm">{{.Field}}</span>
+</div>
+{{end}}
+{{range .Curves}}
+<div class="math-card" data-cat="crv" onclick="inspectMath('crv', '{{.Name}}')">
+  <div class="math-head">
+    <div class="math-sym" style="color:var(--rose)">ƒ(x)</div>
+    <div>
+      <div class="math-title">{{.Name}}</div>
+      <div class="math-sub">{{.Discoverer}}</div>
+    </div>
+  </div>
+  <span class="math-badge badge-crv">{{.Type}}</span>
+</div>
+{{end}}
+</div>
+</div>
+
+<div class="card" id="math-detail">
+<span class="muted">Select a constant, polyhedron, sequence, theorem, or curve above to inspect its properties…</span>
+</div>
+
+<script>
+const MathData = {{.JSON}};
+function filterMath(cat, btn) {
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const cards = document.querySelectorAll('.math-card');
+  cards.forEach(c => {
+    const ccat = c.getAttribute('data-cat') || '';
+    if (cat === 'all' || ccat === cat) {
+      c.style.display = 'block';
+    } else {
+      c.style.display = 'none';
+    }
+  });
+}
+
+function inspectMath(kind, key) {
+  const map = MathData[kind] || {};
+  const obj = map[key];
+  if (!obj) return;
+  let title = key;
+  if (kind === 'const') {
+    title = obj.symbol + ' — ' + obj.name + ' (' + obj.domain + ')';
+  } else if (kind === 'poly') {
+    title = '📦 ' + obj.name + ' (' + obj.family + ')';
+  } else if (kind === 'seq') {
+    title = '🔢 ' + obj.name + ' (' + (obj.symbol || '') + ')';
+  } else if (kind === 'thm') {
+    title = '📜 ' + obj.name + ' (' + obj.field + ')';
+  } else if (kind === 'crv') {
+    title = '🌀 ' + obj.name + ' (' + obj.curve_type + ')';
+  }
+  let h = '<h2>' + title + '</h2><table>';
+  for (const k in obj) {
+    if (obj[k] !== null && obj[k] !== '') {
+      h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
+    }
+  }
+  h += '</table>';
+  document.getElementById('math-detail').innerHTML = h;
+  document.getElementById('math-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 </script>
 {{template "bottom" .}}{{end}}
@@ -587,6 +728,143 @@ func main() {
 			"JSON":       template.JS(js.String()),
 		}
 		_ = tpl.ExecuteTemplate(w, "astronomy", data)
+	})
+
+http.HandleFunc("/math", func(w http.ResponseWriter, r *http.Request) {
+		p, err := pool("math")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		type constCard struct {
+			Symbol, Name, ValApprox, Domain string
+		}
+		type polyCard struct {
+			Name, Family, Schlafli string
+			V, E, F                int
+		}
+		type numCard struct {
+			Name, Sym, Oeis, FirstPreview string
+		}
+		type thmCard struct {
+			Name, Field, Prover, Year string
+		}
+		type crvCard struct {
+			Name, Type, Discoverer string
+		}
+
+		var constants []constCard
+		var polyhedra []polyCard
+		var numClasses []numCard
+		var theorems []thmCard
+		var curves []crvCard
+
+		var js strings.Builder
+		js.WriteString(`{"const":{`)
+
+		// 1. Constants
+		cres := runQuery(p, `SELECT symbol, name, value_approx, domain, row_to_json(t)::text FROM constants t ORDER BY symbol ASC`)
+		for i, rw := range cres.Rows {
+			val := rw[2]
+			if len(val) > 20 {
+				val = val[:20] + "…"
+			}
+			constants = append(constants, constCard{
+				Symbol:    rw[0],
+				Name:      rw[1],
+				ValApprox: val,
+				Domain:    rw[3],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[4])
+		}
+
+		// 2. Polyhedra
+		js.WriteString(`},"poly":{`)
+		pres := runQuery(p, `SELECT name, family, schlafli_symbol, vertices, edges, faces, row_to_json(t)::text FROM polyhedra t ORDER BY faces ASC`)
+		for i, rw := range pres.Rows {
+			v, _ := strconv.Atoi(rw[3])
+			e, _ := strconv.Atoi(rw[4])
+			f, _ := strconv.Atoi(rw[5])
+			polyhedra = append(polyhedra, polyCard{
+				Name:     rw[0],
+				Family:   rw[1],
+				Schlafli: rw[2],
+				V:        v,
+				E:        e,
+				F:        f,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[6])
+		}
+
+		// 3. Number Classes
+		js.WriteString(`},"seq":{`)
+		nres := runQuery(p, `SELECT name, symbol, oeis_id, first_terms, row_to_json(t)::text FROM number_classes t ORDER BY name ASC`)
+		for i, rw := range nres.Rows {
+			prev := rw[3]
+			if len(prev) > 22 {
+				prev = prev[:22] + "…"
+			}
+			numClasses = append(numClasses, numCard{
+				Name:         rw[0],
+				Sym:          rw[1],
+				Oeis:         rw[2],
+				FirstPreview: prev,
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[4])
+		}
+
+		// 4. Theorems
+		js.WriteString(`},"thm":{`)
+		tres := runQuery(p, `SELECT name, field, prover, year_proven, row_to_json(t)::text FROM theorems t ORDER BY year_proven ASC`)
+		for i, rw := range tres.Rows {
+			theorems = append(theorems, thmCard{
+				Name:   rw[0],
+				Field:  rw[1],
+				Prover: rw[2],
+				Year:   rw[3],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[4])
+		}
+
+		// 5. Curves
+		js.WriteString(`},"crv":{`)
+		crres := runQuery(p, `SELECT name, curve_type, coalesce(discoverer, 'Classical'), row_to_json(t)::text FROM curves t ORDER BY name ASC`)
+		for i, rw := range crres.Rows {
+			curves = append(curves, crvCard{
+				Name:       rw[0],
+				Type:       rw[1],
+				Discoverer: rw[2],
+			})
+			if i > 0 {
+				js.WriteString(",")
+			}
+			fmt.Fprintf(&js, "%q:%s", rw[0], rw[3])
+		}
+		js.WriteString(`}}`)
+
+		data := map[string]any{
+			"Title":         "mathematics",
+			"Constants":     constants,
+			"Polyhedra":     polyhedra,
+			"NumberClasses": numClasses,
+			"Theorems":      theorems,
+			"Curves":        curves,
+			"JSON":          template.JS(js.String()),
+		}
+		_ = tpl.ExecuteTemplate(w, "math", data)
 	})
 
 	log.Println("rock-sql listening on :8080")
