@@ -684,10 +684,6 @@ function playAudioStream(text, onDone, sessionId) {
   }
 }
 
-function isChromeLikeBrowser() {
-  return /Chrome\//.test(navigator.userAgent) && !/Edg\//.test(navigator.userAgent);
-}
-
 function computerSpeak(text, soundType) {
   playLcarsSound(soundType || 'chirp');
   const txtEl = document.getElementById('voice-transcript');
@@ -695,8 +691,7 @@ function computerSpeak(text, soundType) {
   stopComputerVoiceInternal(false);
   const sid = speechSessionId;
 
-  const forceServerStream = selectedVoiceURI === 'server_stream' || isChromeLikeBrowser();
-  if (forceServerStream) {
+  if (selectedVoiceURI === 'server_stream') {
     playAudioStream(text, null, sid);
     return;
   }
@@ -742,6 +737,10 @@ function computerSpeak(text, soundType) {
   utter.onstart = () => {
     if (sid !== speechSessionId) return;
     started = true;
+    if (speechFallbackTimer) {
+      clearTimeout(speechFallbackTimer);
+      speechFallbackTimer = null;
+    }
     setVoiceVisualizer(true);
   };
   utter.onend = () => {
@@ -765,14 +764,15 @@ function computerSpeak(text, soundType) {
     try {
       window.speechSynthesis.resume();
       window.speechSynthesis.speak(utter);
-      // Fallback timer: if browser speech didn't start in 550ms (typical of iOS WKWebView in DuckDuckGo/Firefox), fallback to audio stream!
+      // Fallback timer: if browser speech didn't start (typical of iOS WKWebView in DuckDuckGo/Firefox), fallback to audio stream!
       speechFallbackTimer = setTimeout(() => {
         speechFallbackTimer = null;
         if (sid !== speechSessionId) return;
-        if (!started && !window.speechSynthesis.speaking) {
+        if (!started && !window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          try { window.speechSynthesis.cancel(); } catch(e){}
           playAudioStream(text, null, sid);
         }
-      }, 550);
+      }, 1200);
     } catch(err) {
       if (sid !== speechSessionId) return;
       playAudioStream(text, null, sid);

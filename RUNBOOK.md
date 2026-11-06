@@ -80,20 +80,20 @@ This generates `dist/openbsd_amd64/rock-sql`.
 
 ### Step 2: Copy Binary & rc.d Script to OpenBSD
 ```bash
-scp dist/openbsd_amd64/rock-sql root@rock.home.arpa:/usr/local/bin/rock-sql
-scp deploy/openbsd/rocksql root@rock.home.arpa:/etc/rc.d/rocksql
+# On rock.home.arpa, the daemon binary is typically installed in /usr/local/sbin
+scp dist/openbsd_amd64/rock-sql root@rock.home.arpa:/usr/local/sbin/rock-sql
+# (Optional) If using the template rc.d script:
+scp deploy/openbsd/rocksql root@rock.home.arpa:/etc/rc.d/rock_sql
 ```
 
 ### Step 3: Setup User & Permissions on OpenBSD
 On the OpenBSD host (`rock.home.arpa`):
 ```ksh
-# Create dedicated unprivileged daemon user if not already present
-useradd -s /sbin/nologin -d /var/empty -c "rock-sql daemon" _rocksql
-
 # Set correct ownership and permissions
-chmod 755 /usr/local/bin/rock-sql
-chmod 555 /etc/rc.d/rocksql
-chown root:bin /usr/local/bin/rock-sql /etc/rc.d/rocksql
+chmod 755 /usr/local/sbin/rock-sql
+# If updating rc.d:
+chmod 555 /etc/rc.d/rock_sql
+chown root:bin /usr/local/sbin/rock-sql /etc/rc.d/rock_sql
 ```
 
 ### Step 4: Configure OpenBSD PostgreSQL
@@ -117,12 +117,12 @@ psql -U explorer -d anatomy -f anatomy_seed.sql
 
 ### Step 5: Enable and Start Service with rcctl(8)
 ```ksh
-rcctl enable rocksql
-rcctl start rocksql
+rcctl enable rock_sql
+rcctl restart rock_sql
 ```
 Check service status or logs:
 ```ksh
-rcctl check rocksql
+rcctl check rock_sql
 tail -f /var/log/daemon
 ```
 
