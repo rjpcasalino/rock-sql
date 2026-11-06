@@ -684,6 +684,10 @@ function playAudioStream(text, onDone, sessionId) {
   }
 }
 
+function isChromeLikeBrowser() {
+  return /Chrome\//.test(navigator.userAgent) && !/Edg\//.test(navigator.userAgent);
+}
+
 function computerSpeak(text, soundType) {
   playLcarsSound(soundType || 'chirp');
   const txtEl = document.getElementById('voice-transcript');
@@ -691,7 +695,8 @@ function computerSpeak(text, soundType) {
   stopComputerVoiceInternal(false);
   const sid = speechSessionId;
 
-  if (selectedVoiceURI === 'server_stream') {
+  const forceServerStream = selectedVoiceURI === 'server_stream' || isChromeLikeBrowser();
+  if (forceServerStream) {
     playAudioStream(text, null, sid);
     return;
   }
