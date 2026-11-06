@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -139,14 +140,14 @@ func runQuery(db *sql.DB, q string, args ...any) Result {
 }
 
 const base = `{{define "top"}}<!DOCTYPE html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>rock-sql{{if .Title}} // {{.Title}}{{end}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>rock-sql{{if .Title}} // {{.Title}}{{end}}</title>
 <style>
 :root{--bg:#16161c;--panel:#1f1f28;--border:#2e2e3e;--text:#dcd7ba;--muted:#727169;--mint:#8abf9c;--rose:#d97c8a;--gold:#d4b47b;--cyan:#78b5ba;--blue:#7e9cd8}
 *{box-sizing:border-box}body{margin:0;padding:18px;background:var(--bg);color:var(--text);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace}
 a{color:var(--cyan);text-decoration:none}a:hover{text-decoration:underline}
 .wrap{max-width:1400px;margin:0 auto}header{display:flex;gap:18px;align-items:center;padding:12px 16px;background:var(--panel);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;flex-wrap:wrap}
 header h1{margin:0;font-size:17px;color:var(--cyan)}nav a{margin-right:14px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 h2{margin:0 0 10px;font-size:14px;color:var(--blue)}.muted{color:var(--muted)}
 table{border-collapse:collapse;font-size:12px;width:100%}th,td{text-align:left;padding:4px 8px;border-bottom:1px solid #252532;vertical-align:top;max-width:420px;overflow:hidden;text-overflow:ellipsis}
 th{color:var(--gold);font-weight:normal;position:sticky;top:0;background:var(--panel)}
@@ -156,6 +157,18 @@ button,.btn{background:#2a2a37;color:var(--text);border:1px solid var(--cyan);pa
 button:hover,.btn:hover{background:#353545}
 .btn.active{background:var(--cyan);color:#16161c;font-weight:bold}
 .err{color:var(--rose);white-space:pre-wrap}.chips a{display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border:1px solid var(--border);border-radius:4px}
+@media (max-width: 640px) {
+  body { padding: 8px; font-size: 12px; }
+  .wrap { width: 100%; }
+  header { padding: 10px 12px; gap: 8px; flex-direction: column; align-items: flex-start; }
+  header h1 { font-size: 16px; margin: 0; }
+  header nav { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+  header nav a { margin-right: 0; font-size: 12px; }
+  .card { padding: 10px 12px; margin-bottom: 12px; }
+  .grid { grid-template-columns: 1fr; gap: 10px; }
+  table { font-size: 11px; }
+  th, td { padding: 3px 6px; max-width: 180px; }
+}
 </style></head><body><div class="wrap">
 <header><h1>🐡 rock-sql</h1><nav><a href="/">databases</a><a href="/elements">periodic table</a><a href="/astronomy">astronomy</a><a href="/math">mathematics</a><a href="/anatomy">anatomy</a></nav></header>{{end}}
 {{define "bottom"}}</div></body></html>{{end}}
@@ -217,10 +230,10 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 .lcars-header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #33334d;padding-bottom:10px;margin-bottom:16px;flex-wrap:wrap;gap:10px}
 .lcars-title{color:#ff9900;font-size:18px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin:0}
 .lcars-code{background:#cc6699;color:#111;font-weight:bold;padding:3px 10px;border-radius:12px;font-size:11px;letter-spacing:1px}
-.lcars-layout{display:grid;grid-template-columns:minmax(300px, 440px) 1fr;gap:20px;align-items:start}
+.lcars-layout{display:grid;grid-template-columns:minmax(280px, 420px) 1fr;gap:18px;align-items:start}
 @media(max-width:860px){.lcars-layout{grid-template-columns:1fr}}
-.viewscreen-wrap{position:relative;background:radial-gradient(circle at center, #101729 0%, #05060a 100%);border:2px solid #445577;border-radius:16px;overflow:hidden;box-shadow:0 0 24px rgba(120,181,186,0.2);text-align:center;user-select:none;touch-action:none}
-#planet-canvas{width:100%;max-width:420px;height:380px;display:block;margin:0 auto;cursor:grab}
+.viewscreen-wrap{position:relative;background:radial-gradient(circle at center, #101729 0%, #05060a 100%);border:2px solid #445577;border-radius:16px;overflow:hidden;box-shadow:0 0 24px rgba(120,181,186,0.2);text-align:center;user-select:none;touch-action:none;width:100%;max-width:420px;margin:0 auto}
+#planet-canvas{width:100%;max-width:420px;height:auto;aspect-ratio:420/360;display:block;margin:0 auto;cursor:grab}
 #planet-canvas:active{cursor:grabbing}
 .viewscreen-hint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:11px;color:#88aacc;pointer-events:none;background:rgba(5,6,10,0.65);padding:3px 0}
 .voice-box{background:#141624;border:1px solid #ff9900;border-left:8px solid #ff9900;border-radius:10px;padding:12px 16px;margin-bottom:14px}
@@ -230,7 +243,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 .voice-bar{width:4px;background:#66ccff;border-radius:2px;height:4px;transition:height .08s}
 .voice-bars.speaking .voice-bar{background:#ff9900}
 .voice-text{font-size:15px;line-height:1.5;color:#f0ebd8;min-height:44px}
-.cadet-pad{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;margin-bottom:14px}
+.cadet-pad{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px}
 .lcars-btn{border:none;border-radius:22px;padding:12px 14px;font-family:inherit;font-size:13px;font-weight:bold;color:#111;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:transform .1s,filter .15s;box-shadow:0 3px 10px rgba(0,0,0,0.4)}
 .lcars-btn:hover{filter:brightness(1.15);transform:scale(1.02)}
 .lcars-btn:active{transform:scale(0.96)}
@@ -247,6 +260,36 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 .voice-controls{margin-top:10px;padding-top:10px;border-top:1px dashed #2e3450}
 .lcars-select{background:#0e101b;color:#ffcc66;border:1px solid #ff9900;border-radius:6px;padding:4px 8px;font-family:inherit;font-size:12px;max-width:260px;cursor:pointer}
 .lcars-select:focus{outline:none;border-color:#66ccff;box-shadow:0 0 8px rgba(102,204,255,0.4)}
+
+@media (max-width: 640px) {
+  .astro-grid{grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px}
+  .astro-card{padding:8px}
+  .astro-title{font-size:12px}
+  .astro-sub{font-size:10px}
+  .tabbar{gap:6px}
+  .tabbar button,.tabbar .btn{padding:5px 8px;font-size:11px}
+  .lcars-toggle{width:100%;text-align:center;margin:6px 0;font-size:12px;padding:7px 12px}
+  .lcars-frame{
+    border-left:8px solid #ff9900;
+    border-top:6px solid #ff9900;
+    border-bottom:6px solid #cc6699;
+    border-top-left-radius:16px;
+    border-bottom-left-radius:16px;
+    padding:10px 8px;
+    margin-bottom:12px;
+  }
+  .lcars-header{flex-direction:column;align-items:flex-start;gap:6px}
+  .lcars-title{font-size:13px;letter-spacing:1px}
+  .lcars-code{font-size:10px}
+  .viewscreen-wrap{max-width:100%;border-radius:12px}
+  #planet-canvas{width:100%;height:auto;aspect-ratio:420/340}
+  .voice-box{padding:10px;margin-bottom:10px}
+  .voice-text{font-size:13px;min-height:36px}
+  .cadet-pad{grid-template-columns:1fr 1fr;gap:8px}
+  .lcars-btn{padding:9px 8px;font-size:11px;border-radius:14px;gap:6px}
+  .lcars-btn .ico{font-size:16px}
+  .lcars-select{max-width:100%;width:100%;font-size:12px}
+}
 </style>
 <div class="card">
 <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
@@ -369,6 +412,12 @@ function populateVoiceDropdown() {
   defOpt.value = '';
   defOpt.textContent = '🌟 Best Natural English Voice';
   sel.appendChild(defOpt);
+
+  const streamOpt = document.createElement('option');
+  streamOpt.value = 'server_stream';
+  streamOpt.textContent = '📻 Starship Audio Stream (Mobile Audio)';
+  if (selectedVoiceURI === 'server_stream') streamOpt.selected = true;
+  sel.appendChild(streamOpt);
 
   sorted.forEach(v => {
     const opt = document.createElement('option');
@@ -546,19 +595,65 @@ function setVoiceVisualizer(active) {
   }
 }
 
+window.activeSpeechUtterance = null;
+let streamAudioEl = null;
+
+function playAudioStream(text, onDone) {
+  try {
+    ensureAudio();
+    if (!streamAudioEl) {
+      streamAudioEl = new Audio();
+    }
+    streamAudioEl.pause();
+    streamAudioEl.src = '/api/tts?text=' + encodeURIComponent(text);
+    setVoiceVisualizer(true);
+    streamAudioEl.onended = () => {
+      setVoiceVisualizer(false);
+      if (onDone) onDone();
+    };
+    streamAudioEl.onerror = () => {
+      setVoiceVisualizer(false);
+      if (onDone) onDone();
+    };
+    const p = streamAudioEl.play();
+    if (p && p.catch) {
+      p.catch(err => {
+        setVoiceVisualizer(false);
+        console.warn('Audio stream error:', err);
+      });
+    }
+  } catch(e) {
+    setVoiceVisualizer(false);
+  }
+}
+
 function computerSpeak(text, soundType) {
   playLcarsSound(soundType || 'chirp');
   const txtEl = document.getElementById('voice-transcript');
   if (txtEl) txtEl.textContent = text;
 
-  if (!('speechSynthesis' in window)) {
-    setVoiceVisualizer(true);
-    setTimeout(() => setVoiceVisualizer(false), 3000);
+  if (selectedVoiceURI === 'server_stream') {
+    playAudioStream(text);
     return;
   }
 
-  window.speechSynthesis.cancel();
+  const hasSynth = ('speechSynthesis' in window) && (window.speechSynthesis !== null);
+  if (!hasSynth) {
+    playAudioStream(text);
+    return;
+  }
+
+  try {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+  } catch(e) {}
+
+  try {
+    window.speechSynthesis.cancel();
+  } catch(e) {}
+
   const utter = new SpeechSynthesisUtterance(text);
+  window.activeSpeechUtterance = utter; // Prevent iOS WebKit GC bug
+  utter.lang = 'en-US';
 
   // Pick voice: user selection or best natural English voice
   const voices = cachedVoices.length ? cachedVoices : (('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : []);
@@ -579,17 +674,46 @@ function computerSpeak(text, soundType) {
   utter.rate = 1.0;
   utter.pitch = 1.0;
 
-  utter.onstart = () => setVoiceVisualizer(true);
-  utter.onend = () => setVoiceVisualizer(false);
-  utter.onerror = () => setVoiceVisualizer(false);
+  let started = false;
+  utter.onstart = () => {
+    started = true;
+    setVoiceVisualizer(true);
+  };
+  utter.onend = () => {
+    setVoiceVisualizer(false);
+    window.activeSpeechUtterance = null;
+  };
+  utter.onerror = (e) => {
+    setVoiceVisualizer(false);
+    window.activeSpeechUtterance = null;
+    console.warn('Speech synthesis failed, falling back to audio stream:', e);
+    playAudioStream(text);
+  };
 
   setVoiceVisualizer(true);
-  window.speechSynthesis.speak(utter);
+
+  setTimeout(() => {
+    try {
+      window.speechSynthesis.resume();
+      window.speechSynthesis.speak(utter);
+      // Fallback timer: if browser speech didn't start in 550ms (typical of iOS WKWebView in DuckDuckGo/Firefox), fallback to audio stream!
+      setTimeout(() => {
+        if (!started && !window.speechSynthesis.speaking) {
+          playAudioStream(text);
+        }
+      }, 550);
+    } catch(err) {
+      playAudioStream(text);
+    }
+  }, 40);
 }
 
 function stopComputerVoice() {
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+    try { window.speechSynthesis.cancel(); } catch(e){}
+  }
+  if (streamAudioEl) {
+    try { streamAudioEl.pause(); streamAudioEl.currentTime = 0; } catch(e){}
   }
   setVoiceVisualizer(false);
   playLcarsSound('chirp');
@@ -1106,6 +1230,7 @@ function inspectAstro(kind, key) {
                 '<select id="voice-select" class="lcars-select" onchange="onVoiceChanged(this.value)"><option value="">Loading voices…</option></select>' +
                 '<button type="button" class="btn" style="padding:3px 10px;font-size:11px;border-color:#ff9900;color:#ff9900" onclick="testSelectedVoice()">Test 🔊</button>' +
               '</div>' +
+              '<div style="font-size:11px;color:#d4b47b;margin-top:6px;line-height:1.4">📱 <b>Phone sound note:</b> If quiet, make sure your iPhone silent/mute switch on the side of the phone is OFF!</div>' +
             '</div>' +
           '</div>' +
           controlsHtml +
@@ -1403,6 +1528,30 @@ function inspectAnat(kind, key) {
 `))
 
 func main() {
+	http.HandleFunc("/api/tts", func(w http.ResponseWriter, r *http.Request) {
+		text := strings.TrimSpace(r.URL.Query().Get("text"))
+		if text == "" {
+			http.Error(w, "missing text", 400)
+			return
+		}
+		if len(text) > 600 {
+			text = text[:600]
+		}
+		espeakPath, err := exec.LookPath("espeak")
+		if err != nil {
+			espeakPath, err = exec.LookPath("espeak-ng")
+		}
+		if err != nil {
+			http.Error(w, "tts not available", 501)
+			return
+		}
+		cmd := exec.CommandContext(r.Context(), espeakPath, "--stdout", "-s", "145", text)
+		w.Header().Set("Content-Type", "audio/wav")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		cmd.Stdout = w
+		_ = cmd.Run()
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
