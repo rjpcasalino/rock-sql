@@ -1,0 +1,26 @@
+#!/bin/ksh
+#
+# /etc/rc.d/rocksql - OpenBSD rc.d script for rock-sql daemon
+#
+
+daemon="/usr/local/bin/rock-sql"
+daemon_user="_rocksql"
+daemon_flags=""
+
+. /etc/rc.d/rc.subr
+
+# Run in background as a daemon
+rc_bg=YES
+rc_reload=NO
+
+# Environment variables for rock-sql
+# By default, OpenBSD postgresql listens on localhost / /var/postgresql
+# If needed, override in /etc/rc.conf.local:
+# rocksql_flags=""
+#
+# Custom environment can be passed via login.conf or rc_start:
+rc_start() {
+	${rcexec} "env PGHOST=127.0.0.1 PGPORT=5432 PGUSER=explorer PGPASSWORD=explorer PORT=8080 ${daemon} ${daemon_flags}"
+}
+
+rc_cmd $1

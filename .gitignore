@@ -1,0 +1,19 @@
+# Binaries
+rock-sql
+*.exe
+*.test
+
+# Build and dist artifacts
+bin/
+dist/
+
+# Local environment & secrets
+.env
+.env.local
+
+# Docker volume data
+.docker-data/
+
+# OS metadata
+.DS_Store
+Thumbs.db
