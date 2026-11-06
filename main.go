@@ -612,27 +612,69 @@ function setVoiceVisualizer(active) {
 
 window.activeSpeechUtterance = null;
 let streamAudioEl = null;
+let speechSessionId = 0;
+let speechStartTimer = null;
+let speechFallbackTimer = null;
 
-function playAudioStream(text, onDone) {
+function clearSpeechTimers() {
+  if (speechStartTimer) {
+    clearTimeout(speechStartTimer);
+    speechStartTimer = null;
+  }
+  if (speechFallbackTimer) {
+    clearTimeout(speechFallbackTimer);
+    speechFallbackTimer = null;
+  }
+}
+
+function stopComputerVoiceInternal(playStopTone) {
+  speechSessionId++;
+  clearSpeechTimers();
+  window.activeSpeechUtterance = null;
+  if ('speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch(e){}
+  }
+  if (streamAudioEl) {
+    try {
+      streamAudioEl.pause();
+      streamAudioEl.currentTime = 0;
+      streamAudioEl.onended = null;
+      streamAudioEl.onerror = null;
+      streamAudioEl.removeAttribute('src');
+      streamAudioEl.load();
+    } catch(e){}
+  }
+  setVoiceVisualizer(false);
+  if (playStopTone) {
+    playLcarsSound('chirp');
+  }
+}
+
+function playAudioStream(text, onDone, sessionId) {
+  const sid = sessionId || speechSessionId;
   try {
     ensureAudio();
     if (!streamAudioEl) {
       streamAudioEl = new Audio();
     }
     streamAudioEl.pause();
+    streamAudioEl.currentTime = 0;
     streamAudioEl.src = '/api/tts?text=' + encodeURIComponent(text);
     setVoiceVisualizer(true);
     streamAudioEl.onended = () => {
+      if (sid !== speechSessionId) return;
       setVoiceVisualizer(false);
       if (onDone) onDone();
     };
     streamAudioEl.onerror = () => {
+      if (sid !== speechSessionId) return;
       setVoiceVisualizer(false);
       if (onDone) onDone();
     };
     const p = streamAudioEl.play();
     if (p && p.catch) {
       p.catch(err => {
+        if (sid !== speechSessionId) return;
         setVoiceVisualizer(false);
         console.warn('Audio stream error:', err);
       });
@@ -646,15 +688,17 @@ function computerSpeak(text, soundType) {
   playLcarsSound(soundType || 'chirp');
   const txtEl = document.getElementById('voice-transcript');
   if (txtEl) txtEl.textContent = text;
+  stopComputerVoiceInternal(false);
+  const sid = speechSessionId;
 
   if (selectedVoiceURI === 'server_stream') {
-    playAudioStream(text);
+    playAudioStream(text, null, sid);
     return;
   }
 
   const hasSynth = ('speechSynthesis' in window) && (window.speechSynthesis !== null);
   if (!hasSynth) {
-    playAudioStream(text);
+    playAudioStream(text, null, sid);
     return;
   }
 
@@ -691,47 +735,48 @@ function computerSpeak(text, soundType) {
 
   let started = false;
   utter.onstart = () => {
+    if (sid !== speechSessionId) return;
     started = true;
     setVoiceVisualizer(true);
   };
   utter.onend = () => {
+    if (sid !== speechSessionId) return;
     setVoiceVisualizer(false);
     window.activeSpeechUtterance = null;
   };
   utter.onerror = (e) => {
+    if (sid !== speechSessionId) return;
     setVoiceVisualizer(false);
     window.activeSpeechUtterance = null;
     console.warn('Speech synthesis failed, falling back to audio stream:', e);
-    playAudioStream(text);
+    playAudioStream(text, null, sid);
   };
 
   setVoiceVisualizer(true);
 
-  setTimeout(() => {
+  speechStartTimer = setTimeout(() => {
+    speechStartTimer = null;
+    if (sid !== speechSessionId) return;
     try {
       window.speechSynthesis.resume();
       window.speechSynthesis.speak(utter);
       // Fallback timer: if browser speech didn't start in 550ms (typical of iOS WKWebView in DuckDuckGo/Firefox), fallback to audio stream!
-      setTimeout(() => {
+      speechFallbackTimer = setTimeout(() => {
+        speechFallbackTimer = null;
+        if (sid !== speechSessionId) return;
         if (!started && !window.speechSynthesis.speaking) {
-          playAudioStream(text);
+          playAudioStream(text, null, sid);
         }
       }, 550);
     } catch(err) {
-      playAudioStream(text);
+      if (sid !== speechSessionId) return;
+      playAudioStream(text, null, sid);
     }
   }, 40);
 }
 
 function stopComputerVoice() {
-  if ('speechSynthesis' in window) {
-    try { window.speechSynthesis.cancel(); } catch(e){}
-  }
-  if (streamAudioEl) {
-    try { streamAudioEl.pause(); streamAudioEl.currentTime = 0; } catch(e){}
-  }
-  setVoiceVisualizer(false);
-  playLcarsSound('chirp');
+  stopComputerVoiceInternal(true);
 }
 
 function toggleStarshipMode() {
