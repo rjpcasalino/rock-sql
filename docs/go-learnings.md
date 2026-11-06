@@ -118,3 +118,25 @@ Go web apps often serve minimalist, text-heavy UIs. However, standard Go templat
 1. **Web Audio API (`window.AudioContext`)**: Synthesizing procedural UI sound effects (beeps, scans, frequencies) entirely client-side without needing external `.mp3` or `.wav` asset pipelines.
 2. **Web Speech API (`speechSynthesis`)**: Dynamic multi-voice text-to-speech with pitch and rate modulation, allowing voice persona switching (robot, alien, cadet) across diverse operating systems and browsers with zero backend audio compute.
 3. **HTML5 2D Canvas**: 3D orthographic and spherical geometry projections (like Earth continents, day/night shadows, orbiting moons) executed with pure JavaScript math, completely removing heavy 3D engine dependencies like Three.js.
+
+---
+
+## 6. Portable Makefiles: GNU Make vs. BSD Make (OpenBSD `make`)
+
+When building cross-platform Go projects across Linux workstations and OpenBSD hosts:
+- **`export VAR` Syntax Error**: In GNU make, `export CGO_ENABLED` exports the variable to all subshells. In BSD make (OpenBSD/FreeBSD), `export` is not a directive; it expects variable assignment (`=`) or a target rule (`:`), failing with `Need an operator in 'CGO_ENABLED'`.
+- **Portable Pattern**: Pass environment variables directly within command recipes:
+  ```makefile
+  CGO_ENABLED ?= 0
+  build:
+      CGO_ENABLED=$(CGO_ENABLED) go build -trimpath -ldflags="-s -w" -o $(LOCAL_BIN) .
+  ```
+- **`MAKEFILE_LIST` Fallback**: GNU make defines `MAKEFILE_LIST` automatically. On OpenBSD `make`, it is empty; running `awk '...' $(MAKEFILE_LIST)` without arguments causes `awk` to wait indefinitely on `stdin`. Adding `MAKEFILE_LIST ?= Makefile` ensures portable `make help` behavior.
+
+---
+
+## 7. Web Speech API & Browser Fallback Engineering
+
+- **Remote / Cloud Voices in Chrome**: Desktop browsers (especially Chromium) load high-quality neural voices asynchronously over the network. During buffering, `utter.onstart` has not fired yet, but `window.speechSynthesis.pending` is `true`.
+- **Preventing Audio Overlap**: If using a server-side audio fallback (e.g. `/api/tts`), the fallback timeout must account for network buffering (~1200ms) and explicitly check `!window.speechSynthesis.pending`. If a fallback audio stream is triggered, `window.speechSynthesis.cancel()` must be called to guarantee delayed browser speech cannot play simultaneously.
+- **Replacing Executables on BSD (`ETXTBSY`)**: Attempting to overwrite a running binary on OpenBSD via `cp` returns `Text file busy`. Use `install -m 755 <src> <dest>` or rename-and-replace (`mv`) to safely unlink the old inode before restarting the daemon.

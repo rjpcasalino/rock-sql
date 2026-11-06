@@ -7,7 +7,7 @@ OPENBSD_BIN := $(DIST_DIR)/openbsd_amd64/$(APP_NAME)
 
 # Default Go environment
 CGO_ENABLED ?= 0
-export CGO_ENABLED
+MAKEFILE_LIST ?= Makefile
 
 .PHONY: all help build build-openbsd run restart dev test vet fmt clean db-up db-down db-logs db-seed
 
@@ -22,7 +22,7 @@ help: ## Show this help message
 build: ## Build binary for current platform
 	@mkdir -p $(BIN_DIR)
 	@echo "==> Building $(LOCAL_BIN)..."
-	go build -trimpath -ldflags="-s -w" -o $(LOCAL_BIN) .
+	CGO_ENABLED=$(CGO_ENABLED) go build -trimpath -ldflags="-s -w" -o $(LOCAL_BIN) .
 	@echo "==> Build complete: $(LOCAL_BIN)"
 
 build-openbsd: ## Cross-compile static binary for OpenBSD (amd64)
@@ -71,7 +71,7 @@ db-seed: ## Re-apply SQL seed files to the running PostgreSQL container
 
 test: ## Run unit tests
 	@echo "==> Running tests..."
-	go test -v ./...
+	CGO_ENABLED=$(CGO_ENABLED) go test -v ./...
 
 vet: ## Run go vet
 	@echo "==> Running go vet..."
