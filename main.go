@@ -50,6 +50,23 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+func sanitizeSpeechText(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	s = strings.Map(func(r rune) rune {
+		if r == 0 || r < 0x20 {
+			return -1
+		}
+		return r
+	}, s)
+	if len(s) > 600 {
+		s = s[:600]
+	}
+	return s
+}
+
 func pool(name string) (*sql.DB, error) {
 	ok := false
 	for _, d := range databases {
@@ -197,12 +214,10 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 #info{min-height:120px}.legend span{display:inline-block;padding:1px 8px;margin:2px;border-radius:3px;color:#16161c;font-size:11px}</style>
 <div class="card"><h2>Periodic Table <span class="muted">(click an element · colored by type)</span></h2>
 <div class="legend">{{range $t,$c := .Colors}}<span style="background:{{$c}}">{{$t}}</span>{{end}}</div>
-<div class="pt" style="margin-top:10px">{{range .Cells}}{{if .Num}}<div class="el" style="grid-column:{{.Col}};grid-row:{{.Row}};background:{{.Color}}" onclick="show({{.Num}})">
+<div class="pt" style="margin-top:10px">{{range .Cells}}{{if .Num}}<div class="el" style="grid-column:{{.Col}};grid-row:{{.Row}};background:{{.Color}}" data-num="{{.Num}}" onclick="show(this.dataset.num)">
 <span class="n">{{.Num}}</span><b>{{.Sym}}</b>{{.Name}}</div>{{end}}{{end}}</div></div>
 <div class="card" id="info"><span class="muted">Select an element…</span></div>
-<script>const E={{.JSON}};function show(n){const e=E[n];let h='<h2>'+e.Element+' ('+e.Symbol+') — #'+n+'</h2><table>';
-for(const k in e){if(e[k]!==null&&e[k]!=='')h+='<tr><th style="width:220px">'+k+'</th><td>'+e[k]+'</td></tr>'}
-document.getElementById('info').innerHTML=h+'</table>'}</script>
+<script>const E={{.JSON}};function show(n){const e=E[n];if(!e)return;const wrap=document.getElementById('info');wrap.innerHTML='';const h2=document.createElement('h2');h2.textContent=e.Element+' ('+e.Symbol+') — #'+n;wrap.appendChild(h2);const table=document.createElement('table');for(const k in e){if(e[k]!==null&&e[k]!==''){const tr=document.createElement('tr');const th=document.createElement('th');th.style.width='220px';th.textContent=k;const td=document.createElement('td');td.textContent=String(e[k]);tr.appendChild(th);tr.appendChild(td);table.appendChild(tr);}}wrap.appendChild(table);}</script>
 {{template "bottom" .}}{{end}}
 
 {{define "astronomy"}}{{template "top" .}}
@@ -308,7 +323,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 </div>
 <div class="astro-grid" id="astro-list">
 {{range .Planets}}
-<div class="astro-card" data-cat="{{.Cat}}" onclick="inspectAstro('planet', '{{.Name}}')">
+<div class="astro-card" data-cat="{{.Cat}}" data-kind="planet" data-key="{{.Name}}" onclick="inspectAstro(this.dataset.kind, this.dataset.key)">
   <div class="astro-head">
     <span class="astro-orb" style="background:{{.Color}}"></span>
     <div>
@@ -320,7 +335,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 </div>
 {{end}}
 {{range .Moons}}
-<div class="astro-card" data-cat="moon{{if .Ocean}} ocean{{end}}" onclick="inspectAstro('moon', '{{.Name}}')">
+<div class="astro-card" data-cat="moon{{if .Ocean}} ocean{{end}}" data-kind="moon" data-key="{{.Name}}" onclick="inspectAstro(this.dataset.kind, this.dataset.key)">
   <div class="astro-head">
     <span class="astro-orb" style="background:#a5a5b5"></span>
     <div>
@@ -332,7 +347,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 </div>
 {{end}}
 {{range .Exoplanets}}
-<div class="astro-card" data-cat="exoplanet" onclick="inspectAstro('exoplanet', '{{.Name}}')">
+<div class="astro-card" data-cat="exoplanet" data-kind="exoplanet" data-key="{{.Name}}" onclick="inspectAstro(this.dataset.kind, this.dataset.key)">
   <div class="astro-head">
     <span class="astro-orb" style="background:#5577aa"></span>
     <div>
@@ -344,7 +359,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 </div>
 {{end}}
 {{range .Messier}}
-<div class="astro-card" data-cat="messier" onclick="inspectAstro('messier', '{{.Id}}')">
+<div class="astro-card" data-cat="messier" data-kind="messier" data-key="{{.Id}}" onclick="inspectAstro(this.dataset.kind, this.dataset.key)">
   <div class="astro-head">
     <span class="astro-orb" style="background:#b893ce"></span>
     <div>
@@ -356,7 +371,7 @@ document.getElementById('info').innerHTML=h+'</table>'}</script>
 </div>
 {{end}}
 {{range .Constellations}}
-<div class="astro-card" data-cat="constellation" onclick="inspectAstro('constellation', '{{.Abbr}}')">
+<div class="astro-card" data-cat="constellation" data-kind="constellation" data-key="{{.Abbr}}" onclick="inspectAstro(this.dataset.kind, this.dataset.key)">
   <div class="astro-head">
     <span class="astro-orb" style="background:#d4b47b"></span>
     <div>
@@ -1289,7 +1304,7 @@ function inspectAstro(kind, key) {
 </div>
 <div class="math-grid" id="math-list">
 {{range .Constants}}
-<div class="math-card" data-cat="const" onclick="inspectMath('const', '{{.Symbol}}')">
+<div class="math-card" data-cat="const" data-kind="const" data-key="{{.Symbol}}" onclick="inspectMath(this.dataset.kind, this.dataset.key)">
   <div class="math-head">
     <div class="math-sym">{{.Symbol}}</div>
     <div>
@@ -1301,7 +1316,7 @@ function inspectAstro(kind, key) {
 </div>
 {{end}}
 {{range .Polyhedra}}
-<div class="math-card" data-cat="poly" onclick="inspectMath('poly', '{{.Name}}')">
+<div class="math-card" data-cat="poly" data-kind="poly" data-key="{{.Name}}" onclick="inspectMath(this.dataset.kind, this.dataset.key)">
   <div class="math-head">
     <div class="math-sym" style="color:var(--gold)">{{.Schlafli}}</div>
     <div>
@@ -1313,7 +1328,7 @@ function inspectAstro(kind, key) {
 </div>
 {{end}}
 {{range .NumberClasses}}
-<div class="math-card" data-cat="seq" onclick="inspectMath('seq', '{{.Name}}')">
+<div class="math-card" data-cat="seq" data-kind="seq" data-key="{{.Name}}" onclick="inspectMath(this.dataset.kind, this.dataset.key)">
   <div class="math-head">
     <div class="math-sym" style="color:var(--mint)">{{.Sym}}</div>
     <div>
@@ -1325,7 +1340,7 @@ function inspectAstro(kind, key) {
 </div>
 {{end}}
 {{range .Theorems}}
-<div class="math-card" data-cat="thm" onclick="inspectMath('thm', '{{.Name}}')">
+<div class="math-card" data-cat="thm" data-kind="thm" data-key="{{.Name}}" onclick="inspectMath(this.dataset.kind, this.dataset.key)">
   <div class="math-head">
     <div class="math-sym" style="color:#c4a7e7">QED</div>
     <div>
@@ -1337,7 +1352,7 @@ function inspectAstro(kind, key) {
 </div>
 {{end}}
 {{range .Curves}}
-<div class="math-card" data-cat="crv" onclick="inspectMath('crv', '{{.Name}}')">
+<div class="math-card" data-cat="crv" data-kind="crv" data-key="{{.Name}}" onclick="inspectMath(this.dataset.kind, this.dataset.key)">
   <div class="math-head">
     <div class="math-sym" style="color:var(--rose)">ƒ(x)</div>
     <div>
@@ -1387,15 +1402,29 @@ function inspectMath(kind, key) {
   } else if (kind === 'crv') {
     title = '🌀 ' + obj.name + ' (' + obj.curve_type + ')';
   }
-  let h = '<h2>' + title + '</h2><table>';
+
+  const detail = document.getElementById('math-detail');
+  if (!detail) return;
+  detail.innerHTML = '';
+  const h2 = document.createElement('h2');
+  h2.textContent = title;
+  detail.appendChild(h2);
+  const table = document.createElement('table');
   for (const k in obj) {
     if (obj[k] !== null && obj[k] !== '') {
-      h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.style.width = '240px';
+      th.textContent = k;
+      const td = document.createElement('td');
+      td.textContent = String(obj[k]);
+      tr.appendChild(th);
+      tr.appendChild(td);
+      table.appendChild(tr);
     }
   }
-  h += '</table>';
-  document.getElementById('math-detail').innerHTML = h;
-  document.getElementById('math-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  detail.appendChild(table);
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 </script>
 {{template "bottom" .}}{{end}}
@@ -1429,7 +1458,7 @@ function inspectMath(kind, key) {
 </div>
 <div class="anat-grid" id="anat-list">
 {{range .Bones}}
-<div class="anat-card" data-cat="{{.Cat}}" onclick="inspectAnat('bone', '{{.Name}}')">
+<div class="anat-card" data-cat="{{.Cat}}" data-kind="bone" data-key="{{.Name}}" onclick="inspectAnat(this.dataset.kind, this.dataset.key)">
   <div class="anat-head">
     <div class="anat-icon">{{if eq .Cat "axial"}}💀{{else}}🦴{{end}}</div>
     <div>
@@ -1441,7 +1470,7 @@ function inspectMath(kind, key) {
 </div>
 {{end}}
 {{range .Joints}}
-<div class="anat-card" data-cat="joint" onclick="inspectAnat('joint', '{{.Name}}')">
+<div class="anat-card" data-cat="joint" data-kind="joint" data-key="{{.Name}}" onclick="inspectAnat(this.dataset.kind, this.dataset.key)">
   <div class="anat-head">
     <div class="anat-icon" style="color:var(--gold)">🔗</div>
     <div>
@@ -1453,7 +1482,7 @@ function inspectMath(kind, key) {
 </div>
 {{end}}
 {{range .Muscles}}
-<div class="anat-card" data-cat="muscle" onclick="inspectAnat('muscle', '{{.Name}}')">
+<div class="anat-card" data-cat="muscle" data-kind="muscle" data-key="{{.Name}}" onclick="inspectAnat(this.dataset.kind, this.dataset.key)">
   <div class="anat-head">
     <div class="anat-icon" style="color:var(--rose)">💪</div>
     <div>
@@ -1465,7 +1494,7 @@ function inspectMath(kind, key) {
 </div>
 {{end}}
 {{range .Organs}}
-<div class="anat-card" data-cat="organ" onclick="inspectAnat('organ', '{{.Name}}')">
+<div class="anat-card" data-cat="organ" data-kind="organ" data-key="{{.Name}}" onclick="inspectAnat(this.dataset.kind, this.dataset.key)">
   <div class="anat-head">
     <div class="anat-icon" style="color:var(--mint)">🫀</div>
     <div>
@@ -1513,15 +1542,29 @@ function inspectAnat(kind, key) {
   } else if (kind === 'organ') {
     title = '🫀 ' + obj.name;
   }
-  let h = '<h2>' + title + '</h2><table>';
+
+  const detail = document.getElementById('anat-detail');
+  if (!detail) return;
+  detail.innerHTML = '';
+  const h2 = document.createElement('h2');
+  h2.textContent = title;
+  detail.appendChild(h2);
+  const table = document.createElement('table');
   for (const k in obj) {
     if (obj[k] !== null && obj[k] !== '') {
-      h += '<tr><th style="width:240px">' + k + '</th><td>' + obj[k] + '</td></tr>';
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.style.width = '240px';
+      th.textContent = k;
+      const td = document.createElement('td');
+      td.textContent = String(obj[k]);
+      tr.appendChild(th);
+      tr.appendChild(td);
+      table.appendChild(tr);
     }
   }
-  h += '</table>';
-  document.getElementById('anat-detail').innerHTML = h;
-  document.getElementById('anat-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  detail.appendChild(table);
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 </script>
 {{template "bottom" .}}{{end}}
@@ -1529,13 +1572,10 @@ function inspectAnat(kind, key) {
 
 func main() {
 	http.HandleFunc("/api/tts", func(w http.ResponseWriter, r *http.Request) {
-		text := strings.TrimSpace(r.URL.Query().Get("text"))
+		text := sanitizeSpeechText(r.URL.Query().Get("text"))
 		if text == "" {
 			http.Error(w, "missing text", 400)
 			return
-		}
-		if len(text) > 600 {
-			text = text[:600]
 		}
 		espeakPath, err := exec.LookPath("espeak")
 		if err != nil {
